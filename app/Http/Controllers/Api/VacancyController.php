@@ -35,21 +35,48 @@ class VacancyController extends Controller
 
         // Validate request
         $validator = Validator::make($request->all(), [
-            'vacancy_id' => 'required|integer',
+            'source' => 'required|string|max:50',
+            'source_id' => 'required|integer',
             'title' => 'required|string|max:255',
-            'source' => 'sometimes|string|max:50',
             'company_name' => 'nullable|string|max:255',
-            'region_soato' => 'nullable|string|max:10',
+            'company_tin' => 'nullable|string|max:50',
+            'filial_name' => 'nullable|string|max:255',
+            'region_soato' => 'nullable|string|max:20',
+            'district_soato' => 'nullable|string|max:20',
             'region_name' => 'nullable|string|max:255',
-            'district_soato' => 'nullable|string|max:10',
             'district_name' => 'nullable|string|max:255',
-            'salary_min' => 'nullable|integer',
-            'salary_max' => 'nullable|integer',
-            'work_type' => 'nullable|string|max:100',
-            'busyness_type' => 'nullable|string|max:100',
-            'description' => 'nullable|string',
+            'address' => 'nullable|string|max:500',
+            'position_count' => 'nullable|integer',
+            'min_salary' => 'nullable|integer',
+            'max_salary' => 'nullable|integer',
+            'payment_type' => 'nullable|integer',
+            'work_type' => 'nullable|integer',
+            'busyness_type' => 'nullable|integer',
+            'working_time_from' => 'nullable|string',
+            'working_time_to' => 'nullable|string',
+            'min_education' => 'nullable|integer',
+            'work_experience' => 'nullable|integer',
+            'age_from' => 'nullable|integer',
+            'age_to' => 'nullable|integer',
+            'gender' => 'nullable|integer',
+            'languages' => 'nullable|array',
+            'skills' => 'nullable|array',
+            'driver_licenses' => 'nullable|array',
+            'info' => 'nullable|string',
+            'benefit_ids' => 'nullable|array',
+            'test_period_id' => 'nullable|integer',
+            'from_date' => 'nullable|date',
+            'to_date' => 'nullable|date',
+            'additional_phone' => 'nullable|string|max:50',
+            'another_network' => 'nullable|string|max:255',
+            'is_hidden_network' => 'nullable|integer',
+            'mmk_position_id' => 'nullable|integer',
+            'mmk_position_name' => 'nullable|string|max:255',
+            'mmk_group_id' => 'nullable|integer',
+            'mmk_group_name' => 'nullable|string|max:255',
             'show_url' => 'required|url',
-            'raw_data' => 'sometimes|array',
+            'created_at' => 'nullable|string',
+            'approved_at' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -61,9 +88,16 @@ class VacancyController extends Controller
 
         $data = $validator->validated();
 
+        // Prepare description from info field
+        $description = $data['info'] ?? null;
+
+        // Prepare work_type and busyness_type as string for display
+        $workType = isset($data['work_type']) ? (string) $data['work_type'] : null;
+        $busynessType = isset($data['busyness_type']) ? (string) $data['busyness_type'] : null;
+
         // Check if vacancy already exists
-        $existingVacancy = BotVacancy::where('original_vacancy_id', $data['vacancy_id'])
-            ->where('source', $data['source'] ?? 'oson-ish')
+        $existingVacancy = BotVacancy::where('original_vacancy_id', $data['source_id'])
+            ->where('source', $data['source'])
             ->first();
 
         if ($existingVacancy) {
@@ -75,13 +109,13 @@ class VacancyController extends Controller
                 'region_name' => $data['region_name'] ?? null,
                 'district_soato' => $data['district_soato'] ?? null,
                 'district_name' => $data['district_name'] ?? null,
-                'salary_min' => $data['salary_min'] ?? null,
-                'salary_max' => $data['salary_max'] ?? null,
-                'work_type' => $data['work_type'] ?? null,
-                'busyness_type' => $data['busyness_type'] ?? null,
-                'description' => $data['description'] ?? null,
+                'salary_min' => $data['min_salary'] ?? null,
+                'salary_max' => $data['max_salary'] ?? null,
+                'work_type' => $workType,
+                'busyness_type' => $busynessType,
+                'description' => $description,
                 'show_url' => $data['show_url'],
-                'raw_data' => $data['raw_data'] ?? null,
+                'raw_data' => $data,
             ]);
 
             Log::info('Vacancy updated', ['vacancy_id' => $existingVacancy->id]);
@@ -95,8 +129,8 @@ class VacancyController extends Controller
 
         // Create new vacancy
         $vacancy = BotVacancy::create([
-            'original_vacancy_id' => $data['vacancy_id'],
-            'source' => $data['source'] ?? 'oson-ish',
+            'original_vacancy_id' => $data['source_id'],
+            'source' => $data['source'],
             'status' => 'pending',
             'title' => $data['title'],
             'company_name' => $data['company_name'] ?? null,
@@ -104,13 +138,13 @@ class VacancyController extends Controller
             'region_name' => $data['region_name'] ?? null,
             'district_soato' => $data['district_soato'] ?? null,
             'district_name' => $data['district_name'] ?? null,
-            'salary_min' => $data['salary_min'] ?? null,
-            'salary_max' => $data['salary_max'] ?? null,
-            'work_type' => $data['work_type'] ?? null,
-            'busyness_type' => $data['busyness_type'] ?? null,
-            'description' => $data['description'] ?? null,
+            'salary_min' => $data['min_salary'] ?? null,
+            'salary_max' => $data['max_salary'] ?? null,
+            'work_type' => $workType,
+            'busyness_type' => $busynessType,
+            'description' => $description,
             'show_url' => $data['show_url'],
-            'raw_data' => $data['raw_data'] ?? null,
+            'raw_data' => $data,
         ]);
 
         Log::info('Vacancy created', ['vacancy_id' => $vacancy->id]);
