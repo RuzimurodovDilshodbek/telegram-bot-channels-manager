@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Channel extends Model
 {
@@ -24,6 +25,7 @@ class Channel extends Model
     protected $casts = [
         'is_active' => 'boolean',
         'posts_count' => 'integer',
+        'region_soato' => 'array',
     ];
 
     // Relationships
@@ -31,6 +33,8 @@ class Channel extends Model
     {
         return $this->hasMany(ChannelPost::class);
     }
+
+
 
     // Scopes
     public function scopeActive($query)
@@ -55,7 +59,8 @@ class Channel extends Model
 
     public function scopeByRegion($query, $regionSoato)
     {
-        return $query->where('region_soato', $regionSoato);
+        // Check if region_soato JSONB array contains the value
+        return $query->whereRaw('region_soato @> ?', [json_encode([$regionSoato])]);
     }
 
     // Helpers

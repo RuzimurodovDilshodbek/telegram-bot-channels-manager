@@ -6,7 +6,6 @@ use App\Filament\Resources\ChannelResource\Pages;
 use App\Filament\Resources\ChannelResource\RelationManagers;
 use AppModelsRegion;
 use App\Models\Channel;
-use App\Models\Region;
 use App\Services\TelegramBotService;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -71,15 +70,11 @@ class ChannelResource extends Resource
 
                 Forms\Components\Section::make('Qo\'shimcha sozlamalar')
                     ->schema([
-                        Forms\Components\Select::make('region_soato')
-                            ->label('Hududlar')
-                            ->helperText('Bir yoki bir nechta hududni tanlang')
-                            ->options(fn () => \App\Models\Region::query()->orderBy('name_uz')->pluck('name_uz', 'soato'))
-                            ->searchable()
-                            ->multiple()
-                            ->preload()
-                            ->visible(fn (Forms\Get $get) => $get('type') === 'region')
-                            ->required(fn (Forms\Get $get) => $get('type') === 'region'),
+                        Forms\Components\TextInput::make('region_soato')
+                            ->label('SOATO kod')
+                            ->helperText('Faqat hududiy kanallar uchun')
+                            ->maxLength(20)
+                            ->visible(fn (Forms\Get $get) => $get('type') === 'region'),
 
                         Forms\Components\Toggle::make('is_active')
                             ->label('Faol')
