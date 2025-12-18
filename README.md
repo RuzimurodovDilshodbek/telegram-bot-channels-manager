@@ -9,10 +9,13 @@ Bu tizim [oson-ish-api](https://new.osonish.uz) dan tasdiqlangan vakansiyalarni 
 ### Asosiy imkoniyatlar:
 - ✅ Vakansiyalarni avtomatik qabul qilish (oson-ish-api dan)
 - ✅ Moderator kanali orqali vakansiyalarni tasdiqlash/rad etish
+- ✅ **Kanal adminlari tizimi** - Faqat ruxsat etilgan adminlar tasdiqlashi mumkin
 - ✅ SOATO bo'yicha hududiy kanallarga avtomatik tarqatish
+- ✅ **Bir kanal bir nechta hududga xizmat qilishi** (JSONB array)
 - ✅ Click tracking va statistika
 - ✅ Filament Admin Panel (o'zbek tilida)
 - ✅ Dashboard: umumiy statistika, grafiklar, TOP vakansiyalar
+- ✅ **Telegram xabarlarda kanal havolasi ko'rsatiladi**
 - ✅ Telegram bot bilan to'liq integratsiya
 
 ## 🚀 Texnologiyalar
@@ -89,7 +92,23 @@ php artisan db:seed --class=AdminUserSeeder
 - Email: `admin@telegram-bot.local`
 - Parol: `password`
 
-### 5. Telegram Webhook o'rnatish
+### 5. Regions jadvali (Ma'lumotlar bazasi)
+
+**Muhim:** `regions` jadvali uchun migration yozish shart emas. Bu jadval to'g'ridan-to'g'ri ma'lumotlar bazasiga import qilingan (SOATO kodlari va hudud nomlari). Faqat `Region` modelidan foydalaning:
+
+```php
+// Region model mavjud: app/Models/Region.php
+$regions = Region::orderBy('name_uz')->get();
+```
+
+Jadval tuzilmasi:
+- `soato` - SOATO kod (masalan: 1701 - Toshkent shahri)
+- `name_uz` - O'zbek tilida nom
+- `name_ru` - Rus tilida nom
+- `name_en` - Ingliz tilida nom
+- `name_cyrl` - Kirill yozuvida nom
+
+### 6. Telegram Webhook o'rnatish
 
 ```bash
 php artisan telegram:set-webhook
@@ -101,7 +120,7 @@ php artisan telegram:get-webhook
 php artisan telegram:bot-info
 ```
 
-### 6. Queue Worker ishga tushirish
+### 7. Queue Worker ishga tushirish
 
 ```bash
 php artisan queue:work redis --queue=click-tracking --tries=3
@@ -131,11 +150,37 @@ https://admin.ishchi-bozor.uz/admin
 
 #### c) Hududiy kanallar (Regional Channels)
 - Turi: Hududiy kanal
-- SOATO kod: `1701` (misol: Toshkent shahri)
+- SOATO kodlar: `1701, 1702` (bir kanal bir nechta hududga xizmat qilishi mumkin)
 - Telegram Chat ID: `-1001111222333`
-- Faqat shu hududga tegishli vakansiyalar yuboriladi
+- Faqat shu hududlarga tegishli vakansiyalar yuboriladi
 
-### 3. Botni admin qilish
+**Yangilik:** 2025-yil dekabr oyidan boshlab hududiy kanallar bir nechta SOATO kodlarni qo'llab-quvvatlaydi. Masalan, bitta kanal Toshkent shahri va Toshkent viloyatiga xizmat qilishi mumkin.
+
+### 3. Kanal Adminlarini Qo'shish
+
+**Yangi funksiya (2025-yil dekabr):** Endi faqat ruxsat etilgan adminlar boshqaruv kanalida vakansiyalarni tasdiqlashi/rad etishi mumkin.
+
+**Admin panelda → Sozlamalar → Adminlar:**
+
+1. **Yangi admin qo'shish** tugmasini bosing
+2. Kerakli ma'lumotlarni kiriting:
+   - **Kanal**: Qaysi kanal uchun admin (odatda Boshqaruv kanali)
+   - **Ism**: Admin ismi (masalan: "Alisher Valiyev")
+   - **Telegram Username**: @username (ixtiyoriy)
+   - **Telegram User ID**: Admin ning Telegram foydalanuvchi ID raqami
+
+**Telegram User ID ni qanday olish mumkin:**
+- @userinfobot botiga `/start` buyrug'ini yuboring
+- Bot sizning user ID ingizni ko'rsatadi
+- Yoki admin Telegram profiliga forward qilib user ID ni oling
+
+**Muhim eslatmalar:**
+- ✅ Bir admin bir nechta kanalda ishlashi mumkin
+- ✅ Bir kanalga bir xil Telegram ID ikki marta qo'shib bo'lmaydi
+- ✅ Admin faol/nofaol qilish mumkin
+- ✅ Barcha ruxsatsiz urinishlar log ga yoziladi
+
+### 4. Botni admin qilish
 
 Har bir kanal uchun:
 
@@ -190,20 +235,39 @@ Vakansiya avtomatik **boshqaruv kanaliga** yuboriladi:
 
 ### 3. Tasdiqlash jarayoni
 
-Admin tugma bosadi:
+**Faqat ruxsat etilgan admin** tugma bosadi:
 - **✅ Tasdiqlash** → Asosiy va hududiy kanallarga yuboriladi
 - **❌ Rad etish** → Rad etiladi, hech qaerga yuborilmaydi
+
+**Agar admin emas foydalanuvchi tugmani bossa:**
+- 🚫 "Sizda ruxsat yo'q. Faqat adminlar tasdiqlashi mumkin." xabari chiqadi
+- Urinish log ga yoziladi (xavfsizlik uchun)
 
 ### 4. Kanallarga tarqatish
 
 Tasdiqlangan vakansiya:
 - ✅ Asosiy kanalga (har doim)
-- ✅ Hududiy kanalga (agar SOATO mos kelsa)
+- ✅ Hududiy kanallarga (agar SOATO mos kelsa)
 
 Har bir postga unique tracking link beriladi:
 ```
 https://admin.ishchi-bozor.uz/track/aBc123XyZ456
 ```
+
+**Xabar tuzilmasi (yangilangan):**
+```
+📌 PHP Developer
+
+📍 Joylashuv: Toshkent shahri
+💰 Maosh: 5 000 000 - 8 000 000 so'm
+...
+
+📝 Batafsil ma'lumot
+
+📣 Kanal: @ishchi_bozor_uz    ← Kanal havolasi
+```
+
+**Yangilik:** Har bir xabarda qaysi kanalga yuborilganligi ko'rsatiladi. Agar kanalda @username bo'lsa, havola sifatida ko'rsatiladi.
 
 ### 5. Click Tracking
 
@@ -216,15 +280,39 @@ Foydalanuvchi tracking linkni bossa:
 
 ## 📊 Dashboard va Statistika
 
+**Dashboard yangilangan (2025-yil dekabr):** Yanada ixcham va responsive dizayn.
+
 ### Dashboard widgetlari:
-1. **StatsOverview** - 6 ta asosiy metrika
-2. **VacancyClicksChart** - Oxirgi 7 kun grafigi
+1. **StatsOverview** - 6 ta asosiy metrika (3 ustun, 2 qator)
+   - Jami vakansiyalar
+   - Kutilmoqda (pending)
+   - Nashr qilingan
+   - Jami bosishlar (bugungi bilan)
+   - Faol kanallar
+   - O'rtacha bosish
+
+2. **VacancyClicksChart** - Oxirgi 7 kun grafigi (responsive, max height: 300px)
+   - Bar chart
+   - Har kunlik bosishlar soni
+   - O'zbek tilida sanalar
+
 3. **TopVacanciesTable** - Eng ko'p bosilgan TOP 10
+   - ID, Vakansiya nomi, Kompaniya, Hudud
+   - Bosishlar soni (badge)
+   - Nashr vaqti
+
+**Sidebar:** Endi tor va yig'iladigan (collapsible), desktop'da 14rem (224px)
 
 ### Vakansiyalar jadvalida:
 - Filter: Status, Manba, Viloyat, Sana
-- Bulk actions: Tanlanganlarni tasdiqlash/rad etish
-- Actions: Tasdiqlash, Rad etish, Ko'rish, Saytda ochish
+- Bulk actions: Tanlanganlarni tasdiqlash/rad etish (**faqat adminlar ko'radi**)
+- Actions:
+  - ✅ Tasdiqlash (**faqat kanal adminlari**)
+  - ❌ Rad etish (**faqat kanal adminlari**)
+  - 👁️ Ko'rish
+  - 🔗 Saytda ochish
+
+**Muhim:** Tasdiqlash va Rad etish tugmalari faqat boshqaruv kanali adminlari uchun ko'rinadi va ishlaydi.
 
 ## 🛠 Artisan Commands
 
@@ -427,6 +515,67 @@ server {
 - Queue worker ishlab turganini tekshiring
 - Redis ulanishini tekshiring
 - Tracking URL to'g'ri sozlanganini tekshiring
+
+**5. Admin tasdiqlash tugmasini ko'rmayapti**
+- Adminlar bo'limida foydalanuvchi qo'shilganini tekshiring
+- Foydalanuvchining `telegram_id` to'g'ri to'ldirilganini tekshiring (User modeli)
+- Admin faol holatda ekanligini tekshiring (`is_active = true`)
+- Cache ni tozalang: `php artisan cache:clear`
+- Policy ro'yxatdan o'tganini tekshiring: `AuthServiceProvider.php`
+
+**6. "Sizda ruxsat yo'q" xabari chiqmoqda**
+- Foydalanuvchi Telegram ID si `channel_admins` jadvalida borligini tekshiring
+- Admin faol holatda ekanligini tekshiring
+- To'g'ri kanal uchun admin qo'shilganligini tekshiring
+- Log faylni tekshiring: `storage/logs/laravel.log` (unauthorized attempts)
+
+## 🆕 So'nggi Yangilanishlar
+
+### 2025-yil Dekabr (v2.0)
+
+#### ✨ Yangi funksiyalar:
+
+1. **Kanal Adminlari Tizimi**
+   - Faqat ruxsat etilgan adminlar vakansiyalarni tasdiqlashi/rad etishi mumkin
+   - Admin panelda "Adminlar" bo'limi qo'shildi
+   - Bir admin bir nechta kanalda ishlashi mumkin
+   - Telegram bot va Admin panelda avtorizatsiya tekshiruvi
+   - Barcha ruxsatsiz urinishlar log ga yoziladi
+
+2. **Ko'p Hududli Kanallar**
+   - Bir kanal bir nechta SOATO kodlarni qo'llab-quvvatlaydi
+   - JSONB array orqali amalga oshirilgan
+   - Masalan: Toshkent shahri + Toshkent viloyati = bitta kanal
+
+3. **Kanal Havolasi Xabarlarda**
+   - Har bir vakansiya xabarida qaysi kanalga yuborilganligi ko'rsatiladi
+   - Agar kanalda @username bo'lsa, havola sifatida chiqadi
+   - `📣 Kanal: @ishchi_bozor_uz` formatida
+
+4. **Dashboard Optimizatsiyasi**
+   - Ixcham va responsive dizayn
+   - Sidebar tor va yig'iladigan (14rem)
+   - StatsOverview: 3 ustun, 2 qator
+   - VacancyClicksChart: responsive, max height 300px
+   - TopVacanciesTable: yanada ixcham
+
+#### 🔧 Texnik o'zgarishlar:
+
+- `channel_admins` jadvali va modeli
+- `ChannelAdminService` - markazlashtirilgan avtorizatsiya
+- `BotVacancyPolicy` - Laravel policy tizimi
+- `TelegramWebhookController` - avtorizatsiya tekshiruvi
+- `BotVacancyResource` - policy-based authorization
+- `Channel.region_soato` - VARCHAR → JSONB migration
+- `VacancyPublisher` - kanal parametri qo'shildi
+
+#### 📚 Hujjatlar:
+
+- README yangilandi (regions table haqida eslatma)
+- So'nggi o'zgarishlar bo'limi qo'shildi
+- Troubleshooting bo'limiga admin muammolari qo'shildi
+
+---
 
 ## 📜 License
 

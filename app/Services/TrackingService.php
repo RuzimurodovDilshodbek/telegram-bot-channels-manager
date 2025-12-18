@@ -23,18 +23,26 @@ class TrackingService
             return null;
         }
 
+        // Get target URL from osonIshVacancy or fallback to botVacancy
+        $targetUrl = $this->getTargetUrl($channelPost);
+
+        if (!$targetUrl) {
+            Log::error('No target URL found for tracking code', ['code' => $trackingCode]);
+            return null;
+        }
+
         // Check if bot
         if ($this->isBot($request)) {
             if (config('tracking.bot_detection.exclude_bots', true)) {
                 Log::info('Bot detected - click not tracked', ['user_agent' => $request->userAgent()]);
-                return $channelPost->botVacancy->show_url;
+                return $targetUrl;
             }
         }
 
         // Check rate limit
         if ($this->isRateLimited($request)) {
             Log::warning('Rate limit exceeded', ['ip' => $request->ip()]);
-            return $channelPost->botVacancy->show_url;
+            return $targetUrl;
         }
 
         // Check deduplication
@@ -43,7 +51,7 @@ class TrackingService
                 'tracking_code' => $trackingCode,
                 'ip' => $request->ip(),
             ]);
-            return $channelPost->botVacancy->show_url;
+            return $targetUrl;
         }
 
         // Dispatch job to record click
@@ -52,7 +60,7 @@ class TrackingService
         // Increment counter immediately
         $channelPost->incrementClicksCount();
 
-        return $channelPost->botVacancy->show_url;
+        return $targetUrl;
     }
 
     /**
@@ -202,6 +210,36 @@ class TrackingService
         // Store only domain
         $parsed = parse_url($referrer);
         return $parsed['host'] ?? null;
+    }
+
+    /**
+     * Get target URL from vacancy
+     * First try osonIshVacancy, then fallback to botVacancy
+     */
+    protected function getTargetUrl(ChannelPost $channelPost): ?string
+    {
+        $botVacancy = $channelPost->botVacancy;
+
+        if (!$botVacancy) {
+            return null;
+        }
+
+        // First try to get from OsonIshVacancy (preferred)
+        if ($botVacancy->osonIshVacancy && $botVacancy->osonIshVacancy->show_url) {
+            return $botVacancy->osonIshVacancy->show_url;
+        }
+
+        // Fallback to botVacancy show_url
+        if ($botVacancy->show_url) {
+            return $botVacancy->show_url;
+        }
+
+        // Last resort: construct URL from source_id if source is oson-ish
+        if ($botVacancy->source === 'oson-ish' && $botVacancy->source_id) {
+            return 'https://new.osonish.uz/vacancies/' . $botVacancy->source_id;
+        }
+
+        return null;
     }
 
     /**
