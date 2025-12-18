@@ -188,12 +188,12 @@ class VacancyPublisher
 
         // Bandlik turi (payment_name)
         if ($osonIshVacancy->payment_name) {
-            $message .= "⏰ Bandlik turi: {$osonIshVacancy->payment_name}\n";
+            $message .= "💵 To‘lov shakli: {$osonIshVacancy->payment_name}\n";
         }
 
         // Ish turi (work_name)
         if ($osonIshVacancy->work_name) {
-            $message .= "🕐 Ish turi: {$osonIshVacancy->work_name}\n";
+            $message .= "⏰ Bandlik turi: {$osonIshVacancy->work_name}\n";
         }
 
         // Kompaniya
