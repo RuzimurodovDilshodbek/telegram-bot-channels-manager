@@ -126,12 +126,12 @@ class VacancyPublisher
      */
     protected function getRelevantChannels(BotVacancy $vacancy): \Illuminate\Database\Eloquent\Collection
     {
-        $channels = collect();
+        $channelIds = [];
 
         // Main channel - always include
         $mainChannel = Channel::main()->active()->first();
         if ($mainChannel) {
-            $channels->push($mainChannel);
+            $channelIds[] = $mainChannel->id;
         }
 
         // Region channels - if vacancy has region
@@ -143,11 +143,12 @@ class VacancyPublisher
                 ->get();
 
             foreach ($regionChannels as $regionChannel) {
-                $channels->push($regionChannel);
+                $channelIds[] = $regionChannel->id;
             }
         }
 
-        return $channels;
+        // Return Eloquent Collection by fetching all channels by IDs
+        return Channel::whereIn('id', $channelIds)->get();
     }
 
     /**
