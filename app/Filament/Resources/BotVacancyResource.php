@@ -274,6 +274,7 @@ class BotVacancyResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->visible(fn (BotVacancy $record) => $record->status === 'pending')
+                    ->authorize(fn (BotVacancy $record) => auth()->user()->can('approve', $record))
                     ->action(function (BotVacancy $record) {
                         try {
                             $publisher = app(VacancyPublisher::class);
@@ -313,6 +314,7 @@ class BotVacancyResource extends Resource
                     ->color('danger')
                     ->requiresConfirmation()
                     ->visible(fn (BotVacancy $record) => $record->status === 'pending')
+                    ->authorize(fn (BotVacancy $record) => auth()->user()->can('reject', $record))
                     ->form([
                         Forms\Components\Textarea::make('comment')
                             ->label('Sabab (ixtiyoriy)')
@@ -362,6 +364,7 @@ class BotVacancyResource extends Resource
                         ->color('success')
                         ->requiresConfirmation()
                         ->deselectRecordsAfterCompletion()
+                        ->authorize(fn () => auth()->user()->can('viewApprovalActions', BotVacancy::class))
                         ->action(function (Collection $records) {
                             $publisher = app(VacancyPublisher::class);
                             $userId = auth()->id() ?? 1;
@@ -370,6 +373,12 @@ class BotVacancyResource extends Resource
 
                             foreach ($records as $record) {
                                 if ($record->status === 'pending') {
+                                    // Check individual authorization
+                                    if (!auth()->user()->can('approve', $record)) {
+                                        $failCount++;
+                                        continue;
+                                    }
+
                                     try {
                                         $publisher->handleApproval($record, $userId);
                                         $successCount++;
@@ -397,6 +406,7 @@ class BotVacancyResource extends Resource
                         ->color('danger')
                         ->requiresConfirmation()
                         ->deselectRecordsAfterCompletion()
+                        ->authorize(fn () => auth()->user()->can('viewApprovalActions', BotVacancy::class))
                         ->action(function (Collection $records) {
                             $publisher = app(VacancyPublisher::class);
                             $userId = auth()->id() ?? 1;
@@ -404,6 +414,11 @@ class BotVacancyResource extends Resource
 
                             foreach ($records as $record) {
                                 if ($record->status === 'pending') {
+                                    // Check individual authorization
+                                    if (!auth()->user()->can('reject', $record)) {
+                                        continue;
+                                    }
+
                                     try {
                                         $publisher->handleRejection($record, $userId);
                                         $count++;

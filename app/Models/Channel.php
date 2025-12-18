@@ -34,6 +34,11 @@ class Channel extends Model
         return $this->hasMany(ChannelPost::class);
     }
 
+    public function admins(): HasMany
+    {
+        return $this->hasMany(ChannelAdmin::class);
+    }
+
 
 
     // Scopes
@@ -67,5 +72,10 @@ class Channel extends Model
     public function incrementPostsCount(): void
     {
         $this->increment('posts_count');
+    }
+
+    public function getActiveAdmins()
+    {
+        return $this->admins()->active()->get();
     }
 }

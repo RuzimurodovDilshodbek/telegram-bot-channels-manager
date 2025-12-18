@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BotVacancy;
+use App\Models\Channel;
 use App\Services\TelegramBotService;
 use App\Services\VacancyPublisher;
+use App\Services\ChannelAdminService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -80,8 +82,51 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true]);
         }
 
-        $userId = null; // You can implement user matching by telegram_id
+        // AUTHORIZATION CHECK
         $telegramUserId = $from['id'] ?? null;
+
+        if (!$telegramUserId) {
+            $this->telegram->answerCallbackQuery(
+                $callbackQueryId,
+                'Foydalanuvchi aniqlanmadi',
+                true
+            );
+            return response()->json(['ok' => true]);
+        }
+
+        // Get management channel
+        $managementChannel = Channel::management()->active()->first();
+        if (!$managementChannel) {
+            $this->telegram->answerCallbackQuery(
+                $callbackQueryId,
+                'Boshqaruv kanali topilmadi',
+                true
+            );
+            return response()->json(['ok' => true]);
+        }
+
+        // Check if user is an admin for the management channel
+        $adminService = app(ChannelAdminService::class);
+        if (!$adminService->isAuthorizedForChannel($telegramUserId, $managementChannel->id)) {
+            $this->telegram->answerCallbackQuery(
+                $callbackQueryId,
+                '🚫 Sizda ruxsat yo\'q. Faqat adminlar tasdiqlashi mumkin.',
+                true
+            );
+
+            Log::warning('Unauthorized approval attempt', [
+                'telegram_user_id' => $telegramUserId,
+                'telegram_username' => $from['username'] ?? null,
+                'channel_id' => $managementChannel->id,
+                'action' => $action,
+                'vacancy_id' => $vacancyId,
+            ]);
+
+            return response()->json(['ok' => true]);
+        }
+        // END AUTHORIZATION CHECK
+
+        $userId = null; // You can implement user matching by telegram_id
 
         if ($action === 'approve') {
             $success = $this->publisher->handleApproval($vacancy, $userId, $telegramUserId);

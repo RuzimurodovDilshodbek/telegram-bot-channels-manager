@@ -23,6 +23,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'telegram_id',
     ];
 
     /**
@@ -52,5 +53,54 @@ class User extends Authenticatable implements FilamentUser
     {
         // Allow all authenticated users to access the admin panel
         return true;
+    }
+
+    /**
+     * Relationships
+     */
+
+    /**
+     * Get all channel admin records for this user
+     * (One user can be admin for multiple channels)
+     */
+    public function channelAdminRecords()
+    {
+        return $this->hasMany(ChannelAdmin::class, 'telegram_user_id', 'telegram_id');
+    }
+
+    /**
+     * Helper Methods for Channel Admin
+     */
+
+    /**
+     * Check if user is a channel admin (for any channel)
+     */
+    public function isChannelAdmin(): bool
+    {
+        if (!$this->telegram_id) {
+            return false;
+        }
+
+        return $this->channelAdminRecords()->active()->exists();
+    }
+
+    /**
+     * Check if user is admin for a specific channel
+     */
+    public function isAdminForChannel(int $channelId): bool
+    {
+        if (!$this->telegram_id) {
+            return false;
+        }
+
+        return ChannelAdmin::isAdminForChannel($this->telegram_id, $channelId);
+    }
+
+    /**
+     * Get all channels where this user is an active admin
+     */
+    public function getAdminChannels()
+    {
+        return $this->channelAdminRecords()->active()->with('channel')->get();
     }
 }
