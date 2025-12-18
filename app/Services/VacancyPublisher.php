@@ -88,24 +88,27 @@ class VacancyPublisher
      */
     protected function publishToChannel(BotVacancy $vacancy, Channel $channel): bool
     {
-        // Create channel post first to generate tracking code
+        // Create temporary channel post to generate tracking code (without saving)
         $channelPost = new ChannelPost([
             'bot_vacancy_id' => $vacancy->id,
             'channel_id' => $channel->id,
         ]);
-        $channelPost->save();
+
+        // Generate tracking code before saving
+        $channelPost->unique_tracking_code = ChannelPost::generateUniqueCode();
 
         $message = $this->formatVacancyMessage($vacancy, $channelPost->tracking_url);
 
+        // Send to Telegram first
         $response = $this->telegram->sendMessage(
             $channel->telegram_chat_id,
             $message
         );
 
+        // Only save to database if Telegram succeeded
         if ($response && isset($response['message_id'])) {
-            $channelPost->update([
-                'telegram_message_id' => $response['message_id'],
-            ]);
+            $channelPost->telegram_message_id = $response['message_id'];
+            $channelPost->save();
 
             Log::info('Vacancy published to channel', [
                 'vacancy_id' => $vacancy->id,
@@ -115,8 +118,11 @@ class VacancyPublisher
 
             return true;
         } else {
-            // Delete channel post if sending failed
-            $channelPost->delete();
+            Log::error('Failed to send vacancy to Telegram channel', [
+                'vacancy_id' => $vacancy->id,
+                'channel_id' => $channel->id,
+                'telegram_chat_id' => $channel->telegram_chat_id,
+            ]);
             return false;
         }
     }
