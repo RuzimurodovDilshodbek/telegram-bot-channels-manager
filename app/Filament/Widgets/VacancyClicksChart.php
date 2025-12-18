@@ -12,7 +12,12 @@ class VacancyClicksChart extends ChartWidget
 
     protected static ?int $sort = 2;
 
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = [
+        'md' => 2,
+        'xl' => 3,
+    ];
+
+    protected static ?string $maxHeight = '300px';
 
     protected function getData(): array
     {
@@ -66,6 +71,7 @@ class VacancyClicksChart extends ChartWidget
     protected function getOptions(): array
     {
         return [
+            'maintainAspectRatio' => false,
             'scales' => [
                 'y' => [
                     'beginAtZero' => true,

@@ -97,7 +97,7 @@ class VacancyPublisher
         // Generate tracking code before saving
         $channelPost->unique_tracking_code = ChannelPost::generateUniqueCode();
 
-        $message = $this->formatVacancyMessage($vacancy, $channelPost->tracking_url);
+        $message = $this->formatVacancyMessage($vacancy, $channelPost->tracking_url, $channel);
 
         // Send to Telegram first
         $response = $this->telegram->sendMessage(
@@ -160,14 +160,14 @@ class VacancyPublisher
     /**
      * Format vacancy message for Telegram
      */
-    protected function formatVacancyMessage(BotVacancy $vacancy, ?string $trackingUrl = null): string
+    protected function formatVacancyMessage(BotVacancy $vacancy, ?string $trackingUrl = null, ?Channel $channel = null): string
     {
         // Get OsonIshVacancy for detailed information
         $osonIshVacancy = $vacancy->osonIshVacancy;
 
         if (!$osonIshVacancy) {
             // Fallback for non-oson-ish vacancies
-            return $this->formatSimpleVacancyMessage($vacancy, $trackingUrl);
+            return $this->formatSimpleVacancyMessage($vacancy, $trackingUrl, $channel);
         }
 
         $url = $trackingUrl ?? $osonIshVacancy->show_url;
@@ -262,10 +262,17 @@ class VacancyPublisher
         $message .= "\n📝 <a href=\"{$url}\">Batafsil ma'lumot</a>\n\n";
 
         // Manba
-        $message .= "☑️ Manba: Oson-Ish\n\n";
+//        $message .= "☑️ Manba: Oson-Ish\n\n";
 
-        // Kanal nomi
-        $message .= "📣 Siz izlagan ishlar kanali";
+        // Kanal nomi va linki
+        if ($channel && $channel->username) {
+            $channelLink = "https://t.me/{$channel->username}";
+            $message .= "📣 Kanal: <a href=\"{$channelLink}\">@{$channel->username}</a>";
+        } elseif ($channel) {
+            $message .= "📣 Kanal: {$channel->name}";
+        } else {
+            $message .= "📣 Siz izlagan ishlar kanali";
+        }
 
         return $message;
     }
@@ -273,7 +280,7 @@ class VacancyPublisher
     /**
      * Fallback for simple vacancy message
      */
-    protected function formatSimpleVacancyMessage(BotVacancy $vacancy, ?string $trackingUrl = null): string
+    protected function formatSimpleVacancyMessage(BotVacancy $vacancy, ?string $trackingUrl = null, ?Channel $channel = null): string
     {
         $message = "📌 <b>{$vacancy->title}</b>\n\n";
 
@@ -291,7 +298,16 @@ class VacancyPublisher
 
         $message .= "\n📝 <a href=\"{$trackingUrl}\">Batafsil ma'lumot</a>\n\n";
         $message .= "☑️ Manba: {$vacancy->source}\n\n";
-        $message .= "📣 Siz izlagan ishlar kanali";
+
+        // Kanal nomi va linki
+        if ($channel && $channel->username) {
+            $channelLink = "https://t.me/{$channel->username}";
+            $message .= "📣 Kanal: <a href=\"{$channelLink}\">@{$channel->username}</a>";
+        } elseif ($channel) {
+            $message .= "📣 Kanal: {$channel->name}";
+        } else {
+            $message .= "📣 Siz izlagan ishlar kanali";
+        }
 
         return $message;
     }
@@ -401,7 +417,7 @@ class VacancyPublisher
         $updated = false;
 
         foreach ($channelPosts as $post) {
-            $message = $this->formatVacancyMessage($vacancy, $post->tracking_url);
+            $message = $this->formatVacancyMessage($vacancy, $post->tracking_url, $post->channel);
 
             $result = $this->telegram->editMessageText(
                 $post->channel->telegram_chat_id,
@@ -436,7 +452,7 @@ class VacancyPublisher
         $updated = false;
 
         foreach ($channelPosts as $post) {
-            $message = $this->formatVacancyMessage($vacancy, $post->tracking_url);
+            $message = $this->formatVacancyMessage($vacancy, $post->tracking_url, $post->channel);
 
             $result = $this->telegram->editMessageText(
                 $post->channel->telegram_chat_id,

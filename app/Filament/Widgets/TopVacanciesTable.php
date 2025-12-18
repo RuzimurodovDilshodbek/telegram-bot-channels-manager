@@ -31,15 +31,17 @@ class TopVacanciesTable extends BaseWidget
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->label('#')
+                    ->width('60px')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('title')
                     ->label('Vakansiya')
                     ->searchable()
-                    ->limit(50)
+                    ->limit(40)
+                    ->wrap()
                     ->tooltip(function (Tables\Columns\TextColumn $column): ?string {
                         $state = $column->getState();
-                        if (strlen($state) > 50) {
+                        if (strlen($state) > 40) {
                             return $state;
                         }
                         return null;
@@ -48,7 +50,7 @@ class TopVacanciesTable extends BaseWidget
                 Tables\Columns\TextColumn::make('company_name')
                     ->label('Kompaniya')
                     ->searchable()
-                    ->limit(30)
+                    ->limit(25)
                     ->default('-'),
 
                 Tables\Columns\TextColumn::make('region_name')
@@ -56,18 +58,21 @@ class TopVacanciesTable extends BaseWidget
                     ->formatStateUsing(fn ($record) =>
                         $record->region_name . ($record->district_name ? ', ' . $record->district_name : '')
                     )
+                    ->limit(30)
                     ->default('-'),
 
                 Tables\Columns\TextColumn::make('clicks_total')
                     ->label('Bosishlar')
                     ->numeric()
                     ->sortable()
+                    ->alignCenter()
                     ->badge()
                     ->color('success'),
 
                 Tables\Columns\TextColumn::make('published_at')
                     ->label('Nashr vaqti')
                     ->dateTime('d.m.Y')
+                    ->alignCenter()
                     ->sortable(),
             ])
             ->defaultSort('clicks_total', 'desc')
