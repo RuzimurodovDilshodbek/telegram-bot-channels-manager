@@ -5,37 +5,27 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BotVacancy extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'original_vacancy_id',
+        'oson_ish_vacancy_id',
         'source',
         'status',
         'title',
         'company_name',
         'region_soato',
         'region_name',
-        'district_soato',
         'district_name',
-        'salary_min',
-        'salary_max',
-        'work_type',
-        'busyness_type',
-        'description',
-        'show_url',
-        'raw_data',
         'management_message_id',
         'published_at',
     ];
 
     protected $casts = [
-        'raw_data' => 'array',
         'published_at' => 'datetime',
-        'salary_min' => 'integer',
-        'salary_max' => 'integer',
         'management_message_id' => 'integer',
     ];
 
@@ -48,6 +38,11 @@ class BotVacancy extends Model
     public function actionLogs(): HasMany
     {
         return $this->hasMany(ActionLog::class);
+    }
+
+    public function osonIshVacancy(): BelongsTo
+    {
+        return $this->belongsTo(OsonIshVacancy::class, 'oson_ish_vacancy_id', 'oson_ish_vacancy_id');
     }
 
     // Scopes
@@ -124,17 +119,5 @@ class BotVacancy extends Model
     public function getTotalClicksAttribute(): int
     {
         return $this->channelPosts()->sum('clicks_count');
-    }
-
-    public function getFormattedSalaryAttribute(): string
-    {
-        if ($this->salary_min && $this->salary_max) {
-            return number_format($this->salary_min) . ' - ' . number_format($this->salary_max) . ' UZS';
-        } elseif ($this->salary_min) {
-            return 'dan ' . number_format($this->salary_min) . ' UZS';
-        } elseif ($this->salary_max) {
-            return 'gacha ' . number_format($this->salary_max) . ' UZS';
-        }
-        return 'Kelishiladi';
     }
 }

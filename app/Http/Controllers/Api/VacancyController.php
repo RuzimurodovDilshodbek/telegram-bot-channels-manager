@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BotVacancy;
+use App\Models\OsonIshVacancy;
 use App\Services\VacancyPublisher;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -35,48 +36,28 @@ class VacancyController extends Controller
 
         // Validate request
         $validator = Validator::make($request->all(), [
-            'source' => 'required|string|max:50',
-            'source_id' => 'required|integer',
+            'vacancy_id' => 'required|integer',
+            'vacancy_status' => 'required|integer',
             'title' => 'required|string|max:255',
-            'company_name' => 'nullable|string|max:255',
+            'count' => 'nullable|integer',
             'company_tin' => 'nullable|string|max:50',
-            'filial_name' => 'nullable|string|max:255',
-            'region_soato' => 'nullable|string|max:20',
-            'district_soato' => 'nullable|string|max:20',
-            'region_name' => 'nullable|string|max:255',
-            'district_name' => 'nullable|string|max:255',
-            'address' => 'nullable|string|max:500',
-            'position_count' => 'nullable|integer',
-            'min_salary' => 'nullable|integer',
-            'max_salary' => 'nullable|integer',
-            'payment_type' => 'nullable|integer',
-            'work_type' => 'nullable|integer',
-            'busyness_type' => 'nullable|integer',
-            'working_time_from' => 'nullable|string',
-            'working_time_to' => 'nullable|string',
-            'min_education' => 'nullable|integer',
-            'work_experience' => 'nullable|integer',
+            'company_name' => 'required|string|max:255',
+            'payment_name' => 'nullable|string|max:255',
+            'work_name' => 'nullable|string|max:255',
+            'min_salary' => 'nullable|numeric',
+            'max_salary' => 'nullable|numeric',
+            'work_experience_name' => 'nullable|string|max:255',
             'age_from' => 'nullable|integer',
             'age_to' => 'nullable|integer',
             'gender' => 'nullable|integer',
-            'languages' => 'nullable|array',
-            'skills' => 'nullable|array',
-            'driver_licenses' => 'nullable|array',
-            'info' => 'nullable|string',
-            'benefit_ids' => 'nullable|array',
-            'test_period_id' => 'nullable|integer',
-            'from_date' => 'nullable|date',
-            'to_date' => 'nullable|date',
-            'additional_phone' => 'nullable|string|max:50',
-            'another_network' => 'nullable|string|max:255',
-            'is_hidden_network' => 'nullable|integer',
-            'mmk_position_id' => 'nullable|integer',
-            'mmk_position_name' => 'nullable|string|max:255',
-            'mmk_group_id' => 'nullable|integer',
-            'mmk_group_name' => 'nullable|string|max:255',
+            'for_whos_name' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:50',
+            'hr_fio' => 'nullable|string|max:255',
+            'region_code' => 'nullable|string|max:20',
+            'region_name' => 'nullable|string|max:255',
+            'district_name' => 'nullable|string|max:255',
+            'description' => 'nullable|string',
             'show_url' => 'required|url',
-            'created_at' => 'nullable|string',
-            'approved_at' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -88,80 +69,139 @@ class VacancyController extends Controller
 
         $data = $validator->validated();
 
-        // Prepare description from info field
-        $description = $data['info'] ?? null;
+        // 1. Find existing OsonIshVacancy to check status change
+        $existingOsonIshVacancy = OsonIshVacancy::where('oson_ish_vacancy_id', $data['vacancy_id'])->first();
 
-        // Prepare work_type and busyness_type as string for display
-        $workType = isset($data['work_type']) ? (string) $data['work_type'] : null;
-        $busynessType = isset($data['busyness_type']) ? (string) $data['busyness_type'] : null;
+        $previousStatus = $existingOsonIshVacancy ? $existingOsonIshVacancy->vacancy_status : null;
+        $statusChanged = $existingOsonIshVacancy && $existingOsonIshVacancy->vacancy_status != $data['vacancy_status'];
 
-        // Check if vacancy already exists
-        $existingVacancy = BotVacancy::where('original_vacancy_id', $data['source_id'])
-            ->where('source', $data['source'])
+        // 2. Save or update OsonIshVacancy
+        $osonIshVacancy = OsonIshVacancy::updateOrCreate(
+            ['oson_ish_vacancy_id' => $data['vacancy_id']],
+            [
+                'company_tin' => $data['company_tin'] ?? null,
+                'company_name' => $data['company_name'],
+                'vacancy_status' => $data['vacancy_status'],
+                'title' => $data['title'],
+                'count' => $data['count'] ?? 1,
+                'payment_name' => $data['payment_name'] ?? null,
+                'work_name' => $data['work_name'] ?? null,
+                'min_salary' => $data['min_salary'] ?? null,
+                'max_salary' => $data['max_salary'] ?? null,
+                'work_experience_name' => $data['work_experience_name'] ?? null,
+                'age_from' => $data['age_from'] ?? null,
+                'age_to' => $data['age_to'] ?? null,
+                'gender' => $data['gender'] ?? null,
+                'for_whos_name' => $data['for_whos_name'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'hr_fio' => $data['hr_fio'] ?? null,
+                'region_code' => $data['region_code'] ?? null,
+                'region_name' => $data['region_name'] ?? null,
+                'district_name' => $data['district_name'] ?? null,
+                'description' => $data['description'] ?? null,
+                'show_url' => $data['show_url'],
+                'previous_status' => $previousStatus,
+                'status_changed_at' => $statusChanged ? now() : ($existingOsonIshVacancy->status_changed_at ?? null),
+            ]
+        );
+
+        Log::info('OsonIshVacancy saved', [
+            'oson_ish_vacancy_id' => $osonIshVacancy->oson_ish_vacancy_id,
+            'status' => $osonIshVacancy->vacancy_status,
+            'status_changed' => $statusChanged,
+        ]);
+
+        // 3. Check if BotVacancy already exists
+        $botVacancy = BotVacancy::where('oson_ish_vacancy_id', $data['vacancy_id'])
+            ->where('source', 'oson-ish')
             ->first();
 
-        if ($existingVacancy) {
-            // Update existing vacancy
-            $existingVacancy->update([
+        // 4. If vacancy is active (status 2) and not published yet, create BotVacancy and send to management
+        if ($osonIshVacancy->isActive() && !$botVacancy && !$statusChanged) {
+            $botVacancy = BotVacancy::create([
+                'oson_ish_vacancy_id' => $data['vacancy_id'],
+                'source' => 'oson-ish',
+                'status' => 'pending',
                 'title' => $data['title'],
-                'company_name' => $data['company_name'] ?? null,
-                'region_soato' => $data['region_soato'] ?? null,
+                'company_name' => $data['company_name'],
+                'region_soato' => $data['region_code'] ?? null,
                 'region_name' => $data['region_name'] ?? null,
-                'district_soato' => $data['district_soato'] ?? null,
                 'district_name' => $data['district_name'] ?? null,
-                'salary_min' => $data['min_salary'] ?? null,
-                'salary_max' => $data['max_salary'] ?? null,
-                'work_type' => $workType,
-                'busyness_type' => $busynessType,
-                'description' => $description,
-                'show_url' => $data['show_url'],
-                'raw_data' => $data,
             ]);
 
-            Log::info('Vacancy updated', ['vacancy_id' => $existingVacancy->id]);
+            Log::info('BotVacancy created', ['bot_vacancy_id' => $botVacancy->id]);
+
+            // Send to management channel
+            $sent = $this->publisher->sendToManagement($botVacancy);
+
+            if (!$sent) {
+                Log::error('Failed to send vacancy to management channel', ['bot_vacancy_id' => $botVacancy->id]);
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Vacancy updated',
-                'vacancy_id' => $existingVacancy->id,
-            ]);
+                'message' => 'Vacancy created and sent to management',
+                'bot_vacancy_id' => $botVacancy->id,
+                'sent_to_management' => $sent,
+            ], 201);
         }
 
-        // Create new vacancy
-        $vacancy = BotVacancy::create([
-            'original_vacancy_id' => $data['source_id'],
-            'source' => $data['source'],
-            'status' => 'pending',
-            'title' => $data['title'],
-            'company_name' => $data['company_name'] ?? null,
-            'region_soato' => $data['region_soato'] ?? null,
-            'region_name' => $data['region_name'] ?? null,
-            'district_soato' => $data['district_soato'] ?? null,
-            'district_name' => $data['district_name'] ?? null,
-            'salary_min' => $data['min_salary'] ?? null,
-            'salary_max' => $data['max_salary'] ?? null,
-            'work_type' => $workType,
-            'busyness_type' => $busynessType,
-            'description' => $description,
-            'show_url' => $data['show_url'],
-            'raw_data' => $data,
-        ]);
+        // 5. If status changed, handle it
+        if ($statusChanged && $botVacancy) {
+            Log::info('Vacancy status changed', [
+                'oson_ish_vacancy_id' => $osonIshVacancy->oson_ish_vacancy_id,
+                'previous_status' => $osonIshVacancy->previous_status,
+                'current_status' => $osonIshVacancy->vacancy_status,
+            ]);
 
-        Log::info('Vacancy created', ['vacancy_id' => $vacancy->id]);
+            // If became inactive, update all channel posts
+            if ($osonIshVacancy->becameInactive()) {
+                $this->publisher->handleVacancyInactivation($botVacancy);
+            }
 
-        // Send to management channel
-        $sent = $this->publisher->sendToManagement($vacancy);
+            // If became active again, update all channel posts
+            if ($osonIshVacancy->becameActive()) {
+                // If already published, update posts
+                if ($botVacancy->isPublished()) {
+                    $this->publisher->handleVacancyReactivation($botVacancy);
+                }
+                // If not published yet, send to management
+                elseif ($botVacancy->isPending()) {
+                    $sent = $this->publisher->sendToManagement($botVacancy);
+                    if (!$sent) {
+                        Log::error('Failed to send reactivated vacancy to management', ['bot_vacancy_id' => $botVacancy->id]);
+                    }
+                }
+            }
+        }
 
-        if (!$sent) {
-            Log::error('Failed to send vacancy to management channel', ['vacancy_id' => $vacancy->id]);
+        // 6. If became active but BotVacancy doesn't exist, create and send to management
+        if ($statusChanged && $osonIshVacancy->isActive() && $previousStatus != OsonIshVacancy::STATUS_ACTIVE && !$botVacancy) {
+            $botVacancy = BotVacancy::create([
+                'oson_ish_vacancy_id' => $data['vacancy_id'],
+                'source' => 'oson-ish',
+                'status' => 'pending',
+                'title' => $data['title'],
+                'company_name' => $data['company_name'],
+                'region_soato' => $data['region_code'] ?? null,
+                'region_name' => $data['region_name'] ?? null,
+                'district_name' => $data['district_name'] ?? null,
+            ]);
+
+            Log::info('BotVacancy created for reactivated vacancy', ['bot_vacancy_id' => $botVacancy->id]);
+
+            $sent = $this->publisher->sendToManagement($botVacancy);
+
+            if (!$sent) {
+                Log::error('Failed to send reactivated vacancy to management', ['bot_vacancy_id' => $botVacancy->id]);
+            }
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Vacancy created and sent to management',
-            'vacancy_id' => $vacancy->id,
-            'sent_to_management' => $sent,
-        ], 201);
+            'message' => 'Vacancy processed successfully',
+            'oson_ish_vacancy_id' => $osonIshVacancy->id,
+        ]);
     }
 
     /**

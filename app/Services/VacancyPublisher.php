@@ -162,13 +162,114 @@ class VacancyPublisher
      */
     protected function formatVacancyMessage(BotVacancy $vacancy, ?string $trackingUrl = null): string
     {
-        $url = $trackingUrl ?? $vacancy->show_url;
+        // Get OsonIshVacancy for detailed information
+        $osonIshVacancy = $vacancy->osonIshVacancy;
 
-        $message = "🏢 <b>{$vacancy->title}</b>\n\n";
-
-        if ($vacancy->company_name) {
-            $message .= "🏭 Kompaniya: {$vacancy->company_name}\n";
+        if (!$osonIshVacancy) {
+            // Fallback for non-oson-ish vacancies
+            return $this->formatSimpleVacancyMessage($vacancy, $trackingUrl);
         }
+
+        $url = $trackingUrl ?? $osonIshVacancy->show_url;
+
+        $message = "📌 <b>{$osonIshVacancy->title}</b>\n\n";
+
+        // Joylashuv
+        if ($osonIshVacancy->region_name) {
+            $location = $osonIshVacancy->region_name;
+            if ($osonIshVacancy->district_name) {
+                $location .= ", {$osonIshVacancy->district_name}";
+            }
+            $message .= "📍 Joylashuv: {$location}\n";
+        }
+
+        // Maosh
+        $message .= "💰 Maosh: {$osonIshVacancy->formatted_salary}\n";
+
+        // Bandlik turi (payment_name)
+        if ($osonIshVacancy->payment_name) {
+            $message .= "⏰ Bandlik turi: {$osonIshVacancy->payment_name}\n";
+        }
+
+        // Ish turi (work_name)
+        if ($osonIshVacancy->work_name) {
+            $message .= "🕐 Ish turi: {$osonIshVacancy->work_name}\n";
+        }
+
+        // Kompaniya
+        if ($osonIshVacancy->company_name) {
+            $message .= "🏢 Kompaniya: {$osonIshVacancy->company_name}\n";
+        }
+
+        // Xodimlar soni
+        if ($osonIshVacancy->count > 1) {
+            $message .= "👥 Xodimlar soni: {$osonIshVacancy->count} ta\n";
+        }
+
+        // Tajriba
+        if ($osonIshVacancy->work_experience_name) {
+            $message .= "🎓 Tajriba: {$osonIshVacancy->work_experience_name}\n";
+        }
+
+        // Yosh
+        if ($osonIshVacancy->formatted_age) {
+            $message .= "🎂 Yosh: {$osonIshVacancy->formatted_age}\n";
+        }
+
+        // Jinsi
+        if ($osonIshVacancy->gender) {
+            $message .= "👤 Jinsi: {$osonIshVacancy->formatted_gender}\n";
+        }
+
+        // Kim uchun
+        if ($osonIshVacancy->for_whos_name) {
+            $message .= "🎯 Kim uchun: {$osonIshVacancy->for_whos_name}\n";
+        }
+
+        // Ish holati - vacancy status
+        $statusText = $osonIshVacancy->isActive() ? 'Faol' : 'Nofaol';
+        $message .= "🔴 Ish holati: {$statusText}\n";
+
+        // Tavsif
+        if ($osonIshVacancy->description) {
+            $message .= "\n📝 Talab etiladigan ko'nikmalar:\n";
+            $message .= substr($osonIshVacancy->description, 0, 300);
+            if (strlen($osonIshVacancy->description) > 300) {
+                $message .= "...\n";
+            } else {
+                $message .= "\n";
+            }
+        }
+
+        // Telefon va HR
+        if ($osonIshVacancy->phone || $osonIshVacancy->hr_fio) {
+            $message .= "\n";
+            if ($osonIshVacancy->hr_fio) {
+                $message .= "👨‍💼 HR: {$osonIshVacancy->hr_fio}\n";
+            }
+            if ($osonIshVacancy->phone) {
+                $message .= "📞 Telefon: {$osonIshVacancy->phone}\n";
+            }
+        }
+
+        // Batafsil ma'lumot
+        $message .= "\n📝 <a href=\"{$url}\">Batafsil ma'lumot</a>\n\n";
+
+        // Manba
+        $message .= "☑️ Manba: Oson-Ish\n\n";
+
+        // Kanal nomi
+        $message .= "📣 Siz izlagan ishlar kanali";
+
+        return $message;
+    }
+
+    /**
+     * Fallback for simple vacancy message
+     */
+    protected function formatSimpleVacancyMessage(BotVacancy $vacancy, ?string $trackingUrl = null): string
+    {
+        $message = "📌 <b>{$vacancy->title}</b>\n\n";
 
         if ($vacancy->region_name) {
             $location = $vacancy->region_name;
@@ -178,23 +279,13 @@ class VacancyPublisher
             $message .= "📍 Joylashuv: {$location}\n";
         }
 
-        $message .= "💰 Maosh: {$vacancy->formatted_salary}\n";
-
-        if ($vacancy->work_type) {
-            $message .= "🕐 Ish turi: {$vacancy->work_type}\n";
+        if ($vacancy->company_name) {
+            $message .= "🏢 Kompaniya: {$vacancy->company_name}\n";
         }
 
-        if ($vacancy->busyness_type) {
-            $message .= "⏰ Bandlik: {$vacancy->busyness_type}\n";
-        }
-
-        $message .= "\n";
-
-        if ($url) {
-            $message .= "📝 <a href=\"{$url}\">Batafsil ma'lumot</a>\n\n";
-        }
-
-        $message .= "📌 Manba: {$vacancy->source}";
+        $message .= "\n📝 <a href=\"{$trackingUrl}\">Batafsil ma'lumot</a>\n\n";
+        $message .= "☑️ Manba: {$vacancy->source}\n\n";
+        $message .= "📣 Siz izlagan ishlar kanali";
 
         return $message;
     }
@@ -287,5 +378,75 @@ class VacancyPublisher
             $message,
             ['inline_keyboard' => []] // Empty keyboard
         );
+    }
+
+    /**
+     * Handle vacancy becoming inactive - update all channel posts
+     */
+    public function handleVacancyInactivation(BotVacancy $vacancy): bool
+    {
+        $channelPosts = $vacancy->channelPosts;
+
+        if ($channelPosts->isEmpty()) {
+            Log::info('No channel posts to update for inactive vacancy', ['vacancy_id' => $vacancy->id]);
+            return false;
+        }
+
+        $updated = false;
+
+        foreach ($channelPosts as $post) {
+            $message = $this->formatVacancyMessage($vacancy, $post->tracking_url);
+
+            $result = $this->telegram->editMessageText(
+                $post->channel->telegram_chat_id,
+                $post->telegram_message_id,
+                $message
+            );
+
+            if ($result) {
+                $updated = true;
+                Log::info('Updated channel post for inactive vacancy', [
+                    'vacancy_id' => $vacancy->id,
+                    'channel_post_id' => $post->id,
+                ]);
+            }
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Handle vacancy becoming active again - update all channel posts
+     */
+    public function handleVacancyReactivation(BotVacancy $vacancy): bool
+    {
+        $channelPosts = $vacancy->channelPosts;
+
+        if ($channelPosts->isEmpty()) {
+            Log::info('No channel posts found for reactivated vacancy', ['vacancy_id' => $vacancy->id]);
+            return false;
+        }
+
+        $updated = false;
+
+        foreach ($channelPosts as $post) {
+            $message = $this->formatVacancyMessage($vacancy, $post->tracking_url);
+
+            $result = $this->telegram->editMessageText(
+                $post->channel->telegram_chat_id,
+                $post->telegram_message_id,
+                $message
+            );
+
+            if ($result) {
+                $updated = true;
+                Log::info('Updated channel post for reactivated vacancy', [
+                    'vacancy_id' => $vacancy->id,
+                    'channel_post_id' => $post->id,
+                ]);
+            }
+        }
+
+        return $updated;
     }
 }
