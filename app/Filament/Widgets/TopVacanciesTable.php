@@ -21,12 +21,11 @@ class TopVacanciesTable extends BaseWidget
             ->heading('Eng ko\'p bosilgan vakansiyalar (TOP 10)')
             ->query(
                 BotVacancy::query()
+                    ->select('bot_vacancies.*')
+                    ->selectRaw('(SELECT COALESCE(SUM(clicks_count), 0) FROM channel_posts WHERE channel_posts.bot_vacancy_id = bot_vacancies.id) as clicks_total')
                     ->where('status', 'published')
-                    ->withCount(['channelPosts as total_clicks' => function ($query) {
-                        $query->select(\DB::raw('COALESCE(SUM(clicks_count), 0)'));
-                    }])
-                    ->having('total_clicks', '>', 0)
-                    ->orderByDesc('total_clicks')
+                    ->whereRaw('(SELECT COALESCE(SUM(clicks_count), 0) FROM channel_posts WHERE channel_posts.bot_vacancy_id = bot_vacancies.id) > 0')
+                    ->orderByDesc('clicks_total')
                     ->limit(10)
             )
             ->columns([
@@ -59,7 +58,7 @@ class TopVacanciesTable extends BaseWidget
                     )
                     ->default('-'),
 
-                Tables\Columns\TextColumn::make('total_clicks')
+                Tables\Columns\TextColumn::make('clicks_total')
                     ->label('Bosishlar')
                     ->numeric()
                     ->sortable()
@@ -71,7 +70,7 @@ class TopVacanciesTable extends BaseWidget
                     ->dateTime('d.m.Y')
                     ->sortable(),
             ])
-            ->defaultSort('total_clicks', 'desc')
+            ->defaultSort('clicks_total', 'desc')
             ->paginated(false);
     }
 }
