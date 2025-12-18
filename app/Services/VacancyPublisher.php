@@ -232,12 +232,18 @@ class VacancyPublisher
 
         // Tavsif
         if ($osonIshVacancy->description) {
-            $message .= "\n📝 Talab etiladigan ko'nikmalar:\n";
-            $message .= substr($osonIshVacancy->description, 0, 300);
-            if (strlen($osonIshVacancy->description) > 300) {
-                $message .= "...\n";
-            } else {
-                $message .= "\n";
+            // Strip all HTML tags and clean text
+            $cleanDescription = strip_tags($osonIshVacancy->description);
+            $cleanDescription = trim($cleanDescription);
+
+            if (!empty($cleanDescription)) {
+                $message .= "\n📝 Talab etiladigan ko'nikmalar:\n";
+                $message .= substr($cleanDescription, 0, 300);
+                if (strlen($cleanDescription) > 300) {
+                    $message .= "...\n";
+                } else {
+                    $message .= "\n";
+                }
             }
         }
 
