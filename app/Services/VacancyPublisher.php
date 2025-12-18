@@ -214,7 +214,7 @@ class VacancyPublisher
     /**
      * Handle approval from management channel
      */
-    public function handleApproval(BotVacancy $vacancy, int $userId, ?int $telegramUserId = null): bool
+    public function handleApproval(BotVacancy $vacancy, ?int $userId = null, ?int $telegramUserId = null): bool
     {
         $vacancy->approve();
 
@@ -237,7 +237,7 @@ class VacancyPublisher
     /**
      * Handle rejection from management channel
      */
-    public function handleRejection(BotVacancy $vacancy, int $userId, ?int $telegramUserId = null, ?string $comment = null): bool
+    public function handleRejection(BotVacancy $vacancy, ?int $userId = null, ?int $telegramUserId = null, ?string $comment = null): bool
     {
         $vacancy->reject();
 
