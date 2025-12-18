@@ -516,6 +516,13 @@ server {
 - Redis ulanishini tekshiring
 - Tracking URL to'g'ri sozlanganini tekshiring
 
+**4.1. Tracking link 404 qaytarmoqda**
+- `oson_ish_vacancies` jadvalida `show_url` maydonini tekshiring
+- Agar bo'sh bo'lsa, `bot_vacancies.show_url` ishlatiladi
+- Ikkalasi ham bo'sh bo'lsa, `source_id` dan URL tuziladi
+- `TrackingService::getTargetUrl()` metodi uch bosqichli fallback ishlatadi
+- Log faylni tekshiring: `storage/logs/laravel.log`
+
 **5. Admin tasdiqlash tugmasini ko'rmayapti**
 - Adminlar bo'limida foydalanuvchi qo'shilganini tekshiring
 - Foydalanuvchining `telegram_id` to'g'ri to'ldirilganini tekshiring (User modeli)
@@ -568,6 +575,7 @@ server {
 - `BotVacancyResource` - policy-based authorization
 - `Channel.region_soato` - VARCHAR → JSONB migration
 - `VacancyPublisher` - kanal parametri qo'shildi
+- `TrackingService::getTargetUrl()` - tracking URL 404 muammosi hal qilindi (uch bosqichli fallback: osonIshVacancy → botVacancy → constructed URL)
 
 #### 📚 Hujjatlar:
 
