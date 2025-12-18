@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ChannelResource\Pages;
 use App\Filament\Resources\ChannelResource\RelationManagers;
-use AppModelsRegion;
 use App\Models\Channel;
 use App\Models\Region;
 use App\Services\TelegramBotService;
@@ -137,9 +136,25 @@ class ChannelResource extends Resource
                     ->searchable(),
 
                 Tables\Columns\TextColumn::make('region_soato')
-                    ->label('SOATO')
-                    ->default('-')
-                    ->searchable(),
+                    ->label('Hududlar')
+                    ->formatStateUsing(function ($state, $record) {
+                        if (empty($state) || !is_array($state)) {
+                            return '-';
+                        }
+
+                        $regions = Region::whereIn('soato', $state)
+                            ->pluck('name_uz')
+                            ->toArray();
+
+                        return !empty($regions) ? implode(', ', $regions) : '-';
+                    })
+                    ->searchable()
+                    ->tooltip(function ($state) {
+                        if (empty($state) || !is_array($state)) {
+                            return null;
+                        }
+                        return 'SOATO: ' . implode(', ', $state);
+                    }),
 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Faol')

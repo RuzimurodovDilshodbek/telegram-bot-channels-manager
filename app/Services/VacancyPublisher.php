@@ -134,14 +134,15 @@ class VacancyPublisher
             $channels->push($mainChannel);
         }
 
-        // Region channel - if vacancy has region
+        // Region channels - if vacancy has region
+        // Find ALL channels that serve this region (multiple channels can serve same region)
         if ($vacancy->region_soato) {
-            $regionChannel = Channel::region()
+            $regionChannels = Channel::region()
                 ->active()
                 ->byRegion($vacancy->region_soato)
-                ->first();
+                ->get();
 
-            if ($regionChannel) {
+            foreach ($regionChannels as $regionChannel) {
                 $channels->push($regionChannel);
             }
         }
