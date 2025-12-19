@@ -8,10 +8,12 @@ Bu tizim [oson-ish-api](https://new.osonish.uz) dan tasdiqlangan vakansiyalarni 
 
 ### Asosiy imkoniyatlar:
 - ✅ Vakansiyalarni avtomatik qabul qilish (oson-ish-api dan)
+- ✅ **Real-time status sinxronizatsiyasi** - Status o'zgarishi avtomatik kanallarni yangilaydi
 - ✅ Moderator kanali orqali vakansiyalarni tasdiqlash/rad etish
 - ✅ **Kanal adminlari tizimi** - Faqat ruxsat etilgan adminlar tasdiqlashi mumkin
 - ✅ SOATO bo'yicha hududiy kanallarga avtomatik tarqatish
 - ✅ **Bir kanal bir nechta hududga xizmat qilishi** (JSONB array)
+- ✅ **Alohida vakansiya ma'lumotlar bazasi** - OsonIshVacancy table bilan batafsil ma'lumotlar
 - ✅ Click tracking va statistika
 - ✅ Filament Admin Panel (o'zbek tilida)
 - ✅ Dashboard: umumiy statistika, grafiklar, TOP vakansiyalar
@@ -201,22 +203,44 @@ Har bir kanal uchun:
 
 ### 1. Vakansiya qabul qilish
 
-oson-ish-api dan vakansiya status=2 (tasdiqlangan) bo'lganda:
+oson-ish-api dan vakansiya **har qanday status o'zgarishida** webhook yuboriladi:
 
 ```
 POST https://admin.ishchi-bozor.uz/api/vacancies
 X-Webhook-Secret: TgBotCh@nn3lM@n@g3r!2025#SecureKey$
 
 {
-  "source": "oson-ish",
-  "source_id": 12345,
+  "vacancy_id": 12345,
+  "vacancy_status": 2,
   "title": "PHP Developer",
+  "count": 1,
+  "company_tin": "123456789",
   "company_name": "IT Company",
-  "region_soato": "1701",
+  "payment_name": "Oylik",
+  "work_name": "Odatiy (ish joyida)",
   "min_salary": 5000000,
-  ...
+  "max_salary": 8000000,
+  "work_experience_name": "1-3 yil",
+  "age_from": 20,
+  "age_to": 35,
+  "gender": 3,
+  "for_whos_name": null,
+  "phone": "+998901234567",
+  "hr_fio": "Alisher Valiyev",
+  "region_code": "1701",
+  "region_name": "Toshkent shahri",
+  "district_name": "Chilonzor tumani",
+  "description": "Talablar va ko'nikmalar...",
+  "show_url": "https://new.osonish.uz/vacancies/12345"
 }
 ```
+
+**Yangi format (2025-yil dekabr):**
+- `vacancy_id` - Oson-Ish dagi vacancy ID
+- `vacancy_status` - Real-time holat (2 = faol, boshqalar = nofaol)
+- Sys_config dan name lar: `payment_name`, `work_name`, `work_experience_name`, `for_whos_name`
+- HR ma'lumotlari: `phone`, `hr_fio`
+- HTML taglarsiz `description`
 
 ### 2. Moderator kanali
 

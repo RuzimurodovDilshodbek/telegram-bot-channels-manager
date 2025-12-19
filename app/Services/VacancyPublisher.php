@@ -231,32 +231,32 @@ class VacancyPublisher
         $message .= "🔴 Ish holati: {$statusText}\n";
 
         // Tavsif
-        if ($osonIshVacancy->description) {
-            // Strip all HTML tags and clean text
-            $cleanDescription = strip_tags($osonIshVacancy->description);
-            $cleanDescription = trim($cleanDescription);
+//        if ($osonIshVacancy->description) {
+//            // Strip all HTML tags and clean text
+//            $cleanDescription = strip_tags($osonIshVacancy->description);
+//            $cleanDescription = trim($cleanDescription);
+//
+//            if (!empty($cleanDescription)) {
+//                $message .= "\n📝 Talab etiladigan ko'nikmalar:\n";
+//                $message .= substr($cleanDescription, 0, 300);
+//                if (strlen($cleanDescription) > 300) {
+//                    $message .= "...\n";
+//                } else {
+//                    $message .= "\n";
+//                }
+//            }
+//        }
 
-            if (!empty($cleanDescription)) {
-                $message .= "\n📝 Talab etiladigan ko'nikmalar:\n";
-                $message .= substr($cleanDescription, 0, 300);
-                if (strlen($cleanDescription) > 300) {
-                    $message .= "...\n";
-                } else {
-                    $message .= "\n";
-                }
-            }
-        }
-
-        // Telefon va HR
-        if ($osonIshVacancy->phone || $osonIshVacancy->hr_fio) {
-            $message .= "\n";
-            if ($osonIshVacancy->hr_fio) {
-                $message .= "👨‍💼 HR: {$osonIshVacancy->hr_fio}\n";
-            }
-            if ($osonIshVacancy->phone) {
-                $message .= "📞 Telefon: {$osonIshVacancy->phone}\n";
-            }
-        }
+//        // Telefon va HR
+//        if ($osonIshVacancy->phone || $osonIshVacancy->hr_fio) {
+//            $message .= "\n";
+//            if ($osonIshVacancy->hr_fio) {
+//                $message .= "👨‍💼 HR: {$osonIshVacancy->hr_fio}\n";
+//            }
+//            if ($osonIshVacancy->phone) {
+//                $message .= "📞 Telefon: {$osonIshVacancy->phone}\n";
+//            }
+//        }
 
         // Batafsil ma'lumot
         $message .= "\n📝 <a href=\"{$url}\">Batafsil ma'lumot</a>\n\n";
