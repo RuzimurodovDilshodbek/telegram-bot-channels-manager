@@ -132,7 +132,7 @@ class PollResource extends Resource
                             ->multiple()
                             ->options(function () {
                                 return Channel::where('is_active', true)
-                                    ->pluck('name', 'chat_id');
+                                    ->pluck('name', 'telegram_chat_id');
                             })
                             ->visible(fn (Forms\Get $get) => $get('require_subscription'))
                             ->helperText('Foydalanuvchilar ovoz berishdan oldin ushbu kanallarga obuna bo\'lishlari kerak'),
@@ -212,7 +212,7 @@ class PollResource extends Resource
                             ->required()
                             ->options(function () {
                                 return Channel::where('is_active', true)
-                                    ->pluck('name', 'chat_id');
+                                    ->pluck('name', 'telegram_chat_id');
                             })
                             ->helperText('So\'rovnoma qaysi kanallarga chiqarilsin?'),
                     ])
