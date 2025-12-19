@@ -74,8 +74,8 @@ class PollBotService
      */
     protected function handleStart(string $chatId, array $from, string $text): void
     {
-        // Parse poll ID from /start poll_123
-        preg_match('/\/start poll_(\d+)/', $text, $matches);
+        // Parse poll ID and optional candidate ID from /start poll_123 or /start poll_123_vote_456
+        preg_match('/\/start poll_(\d+)(?:_vote_(\d+))?/', $text, $matches);
 
         if (!isset($matches[1])) {
             $this->sendMessage($chatId, "Xush kelibsiz! Iltimos, so'rovnoma linkini bosib kirish orqali ishtirok eting.");
@@ -83,6 +83,8 @@ class PollBotService
         }
 
         $pollId = $matches[1];
+        $preselectedCandidateId = $matches[2] ?? null;
+
         $poll = Poll::with('candidates')->find($pollId);
 
         if (!$poll) {
@@ -112,6 +114,7 @@ class PollBotService
         // Check if already voted
         if ($participant->hasVoted()) {
             $this->sendMessage($chatId, "Siz allaqachon ovoz bergansiz. Rahmat!");
+            $this->showCurrentResults($chatId, $poll);
             return;
         }
 
@@ -125,6 +128,15 @@ class PollBotService
         if ($poll->require_subscription && !$participant->subscription_verified) {
             $this->checkSubscription($chatId, $poll, $participant);
             return;
+        }
+
+        // If candidate was preselected, show confirmation
+        if ($preselectedCandidateId) {
+            $candidate = PollCandidate::find($preselectedCandidateId);
+            if ($candidate && $candidate->poll_id == $poll->id) {
+                $this->showVoteConfirmation($chatId, $poll, $candidate);
+                return;
+            }
         }
 
         // Show candidates
@@ -452,7 +464,12 @@ class PollBotService
                 $message = $this->generatePollMessage($poll);
                 $keyboard = $this->generatePollKeyboard($poll);
 
-                $response = $this->sendMessage($channelId, $message, $keyboard);
+                // Send with photo if exists
+                if ($poll->image && Storage::exists($poll->image)) {
+                    $response = $this->sendPhoto($channelId, Storage::path($poll->image), $message, $keyboard);
+                } else {
+                    $response = $this->sendMessage($channelId, $message, $keyboard);
+                }
 
                 if ($response) {
                     PollChannelPost::create([
@@ -484,7 +501,12 @@ class PollBotService
                 $message = $this->generatePollMessage($poll);
                 $keyboard = $this->generatePollKeyboard($poll);
 
-                $this->editMessageText($post->channel_id, (int)$post->message_id, $message, $keyboard);
+                // Update only the caption and keyboard (can't change photo)
+                if ($poll->image && Storage::exists($poll->image)) {
+                    $this->editMessageCaption($post->channel_id, (int)$post->message_id, $message, $keyboard);
+                } else {
+                    $this->editMessageText($post->channel_id, (int)$post->message_id, $message, $keyboard);
+                }
 
                 $post->update([
                     'last_updated_at' => now(),
@@ -507,15 +529,10 @@ class PollBotService
             $message .= "{$poll->description}\n\n";
         }
 
-        $message .= "📊 <b>Hozirgi natijalar:</b>\n\n";
+        $message .= "📊 <b>Nomzodlar:</b>\n";
+        $message .= "Ovoz berish uchun pastdagi tugmalarni bosing!\n\n";
 
-        foreach ($poll->candidates()->orderByDesc('vote_count')->get() as $candidate) {
-            $percentage = $poll->total_votes > 0 ? round(($candidate->vote_count / $poll->total_votes) * 100, 1) : 0;
-            $message .= "• <b>{$candidate->name}</b>\n";
-            $message .= "  {$candidate->vote_count} ovoz ({$percentage}%)\n\n";
-        }
-
-        $message .= "\n📈 Jami ovozlar: <b>{$poll->total_votes}</b>\n";
+        $message .= "📈 Jami ovozlar: <b>{$poll->total_votes}</b>\n";
         $message .= "⏰ Tugash sanasi: {$poll->end_date->format('d.m.Y H:i')}\n";
 
         return $message;
@@ -526,15 +543,23 @@ class PollBotService
      */
     protected function generatePollKeyboard(Poll $poll): array
     {
-        return [
-            'inline_keyboard' => [
+        $buttons = [];
+
+        // Add candidate buttons with vote counts
+        foreach ($poll->candidates()->where('is_active', true)->orderBy('order')->get() as $candidate) {
+            $percentage = $poll->total_votes > 0 ? round(($candidate->vote_count / $poll->total_votes) * 100, 1) : 0;
+            $buttonText = "{$candidate->name} - {$candidate->vote_count} ovoz ({$percentage}%)";
+
+            $buttons[] = [
                 [
-                    [
-                        'text' => '🗳 Ovoz berish',
-                        'url' => "https://t.me/" . config('telegram.poll_bot_username') . "?start=poll_{$poll->id}"
-                    ]
+                    'text' => $buttonText,
+                    'url' => "https://t.me/" . config('telegram.poll_bot_username') . "?start=poll_{$poll->id}_vote_{$candidate->id}"
                 ]
-            ]
+            ];
+        }
+
+        return [
+            'inline_keyboard' => $buttons
         ];
     }
 
@@ -607,5 +632,68 @@ class PollBotService
             Log::error('PollBot editMessageText error: ' . $e->getMessage());
             return null;
         }
+    }
+
+    /**
+     * Edit message caption (for photos)
+     */
+    protected function editMessageCaption(string $chatId, int $messageId, string $caption, ?array $replyMarkup = null): ?array
+    {
+        try {
+            $params = [
+                'chat_id' => $chatId,
+                'message_id' => $messageId,
+                'caption' => $caption,
+                'parse_mode' => 'HTML',
+            ];
+
+            if ($replyMarkup) {
+                $params['reply_markup'] = json_encode($replyMarkup);
+            }
+
+            return $this->telegram->editMessageCaption($params)->toArray();
+        } catch (TelegramSDKException $e) {
+            Log::error('PollBot editMessageCaption error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Show vote confirmation directly
+     */
+    protected function showVoteConfirmation(string $chatId, Poll $poll, PollCandidate $candidate): void
+    {
+        $message = "✅ <b>Ovozingizni tasdiqlang</b>\n\n";
+        $message .= "Siz <b>{$candidate->name}</b> nomzodiga ovoz berasiz.\n\n";
+        $message .= "Tasdiqlaysizmi?";
+
+        $keyboard = [
+            'inline_keyboard' => [
+                [
+                    ['text' => '✅ Ha, tasdiqlash', 'callback_data' => "confirm_vote_{$poll->id}_{$candidate->id}"],
+                    ['text' => '❌ Bekor qilish', 'callback_data' => "cancel_vote_{$poll->id}"]
+                ]
+            ]
+        ];
+
+        $this->sendMessage($chatId, $message, $keyboard);
+    }
+
+    /**
+     * Show current poll results
+     */
+    protected function showCurrentResults(string $chatId, Poll $poll): void
+    {
+        $message = "📊 <b>Hozirgi natijalar:</b>\n\n";
+
+        foreach ($poll->candidates()->orderByDesc('vote_count')->get() as $candidate) {
+            $percentage = $poll->total_votes > 0 ? round(($candidate->vote_count / $poll->total_votes) * 100, 1) : 0;
+            $message .= "• <b>{$candidate->name}</b>\n";
+            $message .= "  {$candidate->vote_count} ovoz ({$percentage}%)\n\n";
+        }
+
+        $message .= "\n📈 Jami ovozlar: <b>{$poll->total_votes}</b>";
+
+        $this->sendMessage($chatId, $message);
     }
 }
