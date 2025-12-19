@@ -3,10 +3,19 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Telegram Bot Token
+    | Telegram Bot Token (Vacancy Bot)
     |--------------------------------------------------------------------------
     */
     'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Telegram Poll Bot Token
+    |--------------------------------------------------------------------------
+    */
+    'poll_bot_token' => env('TELEGRAM_POLL_BOT_TOKEN', '8587905046:AAElf_h51lxamgPDbswCYwF8Mu3SVOaqN98'),
+    'poll_bot_username' => env('TELEGRAM_POLL_BOT_USERNAME', 'your_poll_bot_username'),
+    'poll_webhook_url' => env('TELEGRAM_POLL_WEBHOOK_URL'),
 
     /*
     |--------------------------------------------------------------------------
