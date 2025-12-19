@@ -590,6 +590,22 @@ server {
    - VacancyClicksChart: responsive, max height 300px
    - TopVacanciesTable: yanada ixcham
 
+5. **OsonIshVacancy Alohida Jadval**
+   - Oson-Ish dan kelgan barcha vakansiya ma'lumotlari alohida jadvalda saqlanadi
+   - `oson_ish_vacancies` jadvali batafsil ma'lumotlar uchun
+   - `bot_vacancies` jadvali faqat bot-ga tegishli ma'lumotlar uchun
+   - Sys_config dan name lar to'g'ridan-to'g'ri saqlanadi (payment_name, work_name, etc.)
+   - Status o'zgarishlari tarixini kuzatish (previous_status, status_changed_at)
+   - HTML taglarsiz description (Telegram uchun moslashtirilgan)
+
+6. **Real-time Status Sinxronizatsiyasi**
+   - Oson-Ish da vakansiya statusi o'zgarganda avtomatik webhook yuboriladi
+   - Barcha kanal postlari avtomatik yangilanadi
+   - Nofaol bo'lganda: "🔴 Ish holati: Nofaol" ko'rsatiladi
+   - Yana faol bo'lganda: avtomatik republish yoki yangilanadi
+   - `SyncVacancyStatusToTelegramJob` - Observer va Schedule uchun birlashtirilgan job
+   - Har 10 daqiqada qo'shimcha sync (backup uchun)
+
 #### 🔧 Texnik o'zgarishlar:
 
 - `channel_admins` jadvali va modeli
@@ -598,14 +614,35 @@ server {
 - `TelegramWebhookController` - avtorizatsiya tekshiruvi
 - `BotVacancyResource` - policy-based authorization
 - `Channel.region_soato` - VARCHAR → JSONB migration
-- `VacancyPublisher` - kanal parametri qo'shildi
+- `VacancyPublisher` - kanal parametri qo'shildi, format yangilandi
+- `VacancyPublisher::handleVacancyInactivation()` - vakansiya nofaol bo'lganda postlarni yangilash
+- `VacancyPublisher::handleVacancyReactivation()` - vakansiya qayta faol bo'lganda yangilash
 - `TrackingService::getTargetUrl()` - tracking URL 404 muammosi hal qilindi (uch bosqichli fallback: osonIshVacancy → botVacancy → constructed URL)
+- `OsonIshVacancy` model - alohida vakansiya ma'lumotlar modeli
+- `BotVacancy.osonIshVacancy()` - BelongsTo relationship
+- `2025_12_18_160627_create_oson_ish_vacancies_table.php` - yangi migration
+- `2025_12_18_160629_simplify_bot_vacancies_table.php` - eski ustunlarni o'chirish
+- `VacancyController::store()` - yangi webhook format qo'llab-quvvatlash
+
+#### 🔗 Oson-Ish-API Integratsiya O'zgarishlari:
+
+- `VacancyObserver` - har qanday status o'zgarishida webhook yuborish
+- `SyncVacancyStatusToTelegramJob` - webhook yuborish uchun birlashtirilgan job
+  - Observer dan chaqirilganda: bitta vakansiyani yuboradi (dispatchSync)
+  - Schedule dan chaqirilganda: oxirgi 2 soat ichidagi barcha o'zgarishlarni yuboradi
+- `routes/console.php` - har 10 daqiqada Schedule::job() ishga tushadi
+- `SyncVacancyStatusToTelegramJob::getSystemConfigName()` - sys_config dan name olish
+- Sys_config lar: payment_type_list, work_type_list, work_experience_list, for_who_list
+- HR ma'lumotlari: `vacancy->hr?->phone`, `vacancy->hr?->fio`
+- Relationship lar: company, filial.region, filial.city, hr
 
 #### 📚 Hujjatlar:
 
 - README yangilandi (regions table haqida eslatma)
+- README yangilandi (OsonIshVacancy table va real-time sync)
 - So'nggi o'zgarishlar bo'limi qo'shildi
 - Troubleshooting bo'limiga admin muammolari qo'shildi
+- Webhook yangi format hujjatlashtirildi
 
 ---
 
