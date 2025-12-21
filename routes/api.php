@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\VacancyController;
 use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\PollBotWebhookController;
 use App\Http\Controllers\Api\IpCollectorController;
+use App\Http\Controllers\Api\ContinueVotingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -41,3 +42,6 @@ Route::get('/vacancies/{vacancyId}/statistics', [VacancyController::class, 'stat
 // IP Collector for Poll Bot
 Route::get('/ip-collector', [IpCollectorController::class, 'show'])->name('ip-collector.show');
 Route::post('/collect-ip', [IpCollectorController::class, 'collect'])->name('ip-collector.collect');
+
+// Continue voting after WebApp verification
+Route::post('/continue-voting', [ContinueVotingController::class, 'continueVoting'])->name('continue-voting');

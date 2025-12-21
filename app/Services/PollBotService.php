@@ -1087,4 +1087,20 @@ class PollBotService
 
         $this->sendMessage($chatId, $message);
     }
+
+    /**
+     * Public method to send vote confirmation (called from API)
+     */
+    public function sendVoteConfirmation(string $chatId, Poll $poll, PollCandidate $candidate): void
+    {
+        $this->showVoteConfirmation($chatId, $poll, $candidate);
+    }
+
+    /**
+     * Public method to send candidates list (called from API)
+     */
+    public function sendCandidatesList(string $chatId, Poll $poll): void
+    {
+        $this->showCandidates($chatId, $poll);
+    }
 }

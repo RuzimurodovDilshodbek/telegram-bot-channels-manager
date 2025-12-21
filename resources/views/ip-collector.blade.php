@@ -233,17 +233,33 @@
                 if (data.success) {
                     showStatus('success', '✅ Tasdiqlandi! Telegram botga qaytilmoqda...');
 
-                    // Send data back to bot and close WebApp
-                    setTimeout(() => {
-                        // Send verification complete data to bot
-                        const responseData = JSON.stringify({
-                            action: 'verification_complete',
-                            poll_id: pollId,
-                            candidate_id: candidateId,
-                            verified: true
-                        });
+                    // Notify bot to continue the flow
+                    setTimeout(async () => {
+                        try {
+                            // Send API request to continue the voting flow
+                            await fetch('/api/continue-voting', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                },
+                                body: JSON.stringify({
+                                    poll_id: pollId,
+                                    chat_id: chatId,
+                                    candidate_id: candidateId,
+                                    token: token
+                                })
+                            });
 
-                        tg.sendData(responseData);
+                            // Close WebApp after notification sent
+                            setTimeout(() => {
+                                tg.close();
+                            }, 500);
+                        } catch (error) {
+                            console.error('Continue voting error:', error);
+                            tg.close();
+                        }
                     }, 500);
                 } else {
                     showStatus('error', '❌ Xato: ' + data.message);
