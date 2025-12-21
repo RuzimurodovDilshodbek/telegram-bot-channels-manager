@@ -1,0 +1,144 @@
+=====================================================
+POLL BOT MUAMMOLARINI HAL QILISH
+=====================================================
+
+SSH orqali serverga kiring:
+ssh root@161.97.88.95
+
+Proyekt papkasiga o'ting:
+cd /var/www/telegram-bot-channels-manager
+
+=====================================================
+1-QADAM: Config va cache ni tozalash
+=====================================================
+
+php artisan config:clear
+php artisan cache:clear
+
+=====================================================
+2-QADAM: Webhookni o'rnatish
+=====================================================
+
+curl -X POST https://admin.ishchi-bozor.uz/api/poll-bot/webhook/set
+
+NATIJANI SAQLANG!
+
+=====================================================
+3-QADAM: Webhook holatini tekshirish
+=====================================================
+
+curl https://admin.ishchi-bozor.uz/api/poll-bot/webhook/info
+
+Bu yerda "url" qiymati quyidagicha bo'lishi kerak:
+https://admin.ishchi-bozor.uz/api/poll-bot/webhook
+
+NATIJANI SAQLANG!
+
+=====================================================
+4-QADAM: Route'larni tekshirish
+=====================================================
+
+php artisan route:list | grep poll-bot
+
+Bu yerda quyidagilar ko'rinishi kerak:
+- POST api/poll-bot/webhook
+- GET  api/poll-bot/webhook/info
+- POST api/poll-bot/webhook/set
+- POST api/poll-bot/webhook/remove
+
+NATIJANI SAQLANG!
+
+=====================================================
+5-QADAM: .env faylni tekshirish
+=====================================================
+
+grep POLL .env
+
+Quyidagilar bo'lishi kerak:
+TELEGRAM_POLL_BOT_TOKEN=8587905046:AAElf_h51lxamgPDbswCYwF8Mu3SVOaqN98
+TELEGRAM_POLL_BOT_USERNAME=sorovnoma_universal_bot
+TELEGRAM_POLL_WEBHOOK_URL=https://admin.ishchi-bozor.uz/api/poll-bot/webhook
+
+Agar yo'q bo'lsa, .env faylga qo'shish kerak!
+
+=====================================================
+6-QADAM: Database migrationlarni tekshirish
+=====================================================
+
+php artisan migrate:status | grep poll
+
+Barcha poll migrationlari "Ran" holatida bo'lishi kerak.
+
+Agar "Pending" bo'lsa:
+php artisan migrate
+
+=====================================================
+7-QADAM: Loglarni real-time kuzatish
+=====================================================
+
+Yangi terminal oynasida:
+
+tail -f storage/logs/laravel.log
+
+Keyin:
+1. Botga telegram orqali biron xabar yuboring (masalan: "salom")
+2. Yoki kanal postidagi nomzod tugmasini bosing
+3. Logda nima chiqishini kuzating
+
+=====================================================
+8-QADAM: Qo'lda test qilish
+=====================================================
+
+Botga telegram orqali quyidagi xabarlarni yuboring:
+
+/start
+/start poll_1
+/start poll_1_vote_1
+
+Har birida bot javob beradimi yoki yo'qmi tekshiring.
+
+=====================================================
+AGAR HALI HAM ISHLAMASA
+=====================================================
+
+1. Botni @BotFather da tekshiring:
+   - Bot o'chirilmaganmi?
+   - Token to'g'rimi?
+
+2. Botning ruxsatlarini tekshiring:
+   - Bot kanallarga admin qilinganmi?
+   - Post yuborish huquqi bormi?
+
+3. Telegram webhook ni qo'lda o'rnatib ko'ring:
+
+curl -X POST "https://api.telegram.org/bot8587905046:AAElf_h51lxamgPDbswCYwF8Mu3SVOaqN98/setWebhook?url=https://admin.ishchi-bozor.uz/api/poll-bot/webhook"
+
+4. Webhook infoни to'g'ridan-to'g'ri Telegram API dan oling:
+
+curl "https://api.telegram.org/bot8587905046:AAElf_h51lxamgPDbswCYwF8Mu3SVOaqN98/getWebhookInfo"
+
+=====================================================
+NATIJALARNI YOZISH
+=====================================================
+
+Har bir qadamdan keyin natijani yozing:
+
+Qadam 2 natijasi:
+
+
+Qadam 3 natijasi:
+
+
+Qadam 4 natijasi:
+
+
+Qadam 5 natijasi:
+
+
+Qadam 7 da log chiqganmi? Nima chiqdi:
+
+
+Qadam 8 da bot javob berdimi:
+
+
+=====================================================

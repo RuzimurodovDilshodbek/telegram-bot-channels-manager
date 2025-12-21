@@ -1,0 +1,73 @@
+=====================================================
+POLL BOT YANGILANISHLARNI O'RNATISH
+=====================================================
+
+SSH orqali serverga kiring:
+ssh root@161.97.88.95
+
+Proyekt papkasiga o'ting:
+cd /var/www/telegram-bot-channels-manager
+
+=====================================================
+1. FAYLLARNI SERVERGA YUKLASH
+=====================================================
+
+Local kompyuteringizdan serverga yangi fayllarni yuklang:
+
+scp app/Services/PollBotService.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Services/
+
+Yoki git orqali:
+git pull origin main
+
+=====================================================
+2. CACHE NI TOZALASH
+=====================================================
+
+php artisan config:clear
+php artisan cache:clear
+php artisan view:clear
+
+=====================================================
+3. TEST QILISH
+=====================================================
+
+1. Botga nomzod tugmasini bosib kiring
+2. Loglarni kuzating:
+
+tail -f storage/logs/laravel.log
+
+3. Quyidagilarni tekshiring:
+   - Barcha majburiy kanallar to'liq ko'rinishi kerak
+   - Har bir kanal oldida ✅ yoki ❌ belgisi bo'lishi kerak
+   - Obunani tekshirish tugmasi ishlashi kerak
+   - Obuna bo'lganingizdan keyin tekshirish o'tishi kerak
+
+=====================================================
+NIMA O'ZGARDI?
+=====================================================
+
+✅ Endi barcha majburiy kanallar to'liq ko'rsatiladi
+✅ Har bir kanal oldida holat ko'rsatiladi (✅ obuna bo'lgan, ❌ obuna bo'lmagan)
+✅ Batafsil loglar qo'shildi (muammolarni topish uchun)
+✅ Xato xabarlari yaxshilandi
+✅ Obuna tekshirish mantiqasi yaxshilandi
+
+=====================================================
+MUAMMONI TOPISH
+=====================================================
+
+Agar hali ham ishlamasa, loglarni kuzating va menga yuboring:
+
+tail -f storage/logs/laravel.log
+
+Keyin:
+1. Nomzod tugmasini bosing
+2. "Obunani tekshirish" tugmasini bosing
+3. Logda quyidagilar chiqadi:
+   - "Checking subscription" - qaysi kanallarni tekshirayotgani
+   - "Subscription status" - har bir kanal uchun status
+   - Agar xato bo'lsa - "Check subscription error" bilan batafsil xato
+
+Bu ma'lumotlarni menga yuboring!
+
+=====================================================

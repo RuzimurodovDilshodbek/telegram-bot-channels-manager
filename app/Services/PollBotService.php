@@ -220,17 +220,33 @@ class PollBotService
 
         foreach ($poll->required_channels as $channelId) {
             try {
+                Log::info('Checking subscription', [
+                    'user_chat_id' => $chatId,
+                    'channel_id' => $channelId,
+                ]);
+
                 $member = $this->telegram->getChatMember([
                     'chat_id' => $channelId,
                     'user_id' => $chatId,
                 ]);
 
                 $status = $member->getStatus();
+
+                Log::info('Subscription status', [
+                    'channel_id' => $channelId,
+                    'status' => $status,
+                ]);
+
                 if (!in_array($status, ['member', 'administrator', 'creator'])) {
                     $notSubscribed[] = $channelId;
                 }
             } catch (\Exception $e) {
-                Log::error('Check subscription error: ' . $e->getMessage());
+                Log::error('Check subscription error', [
+                    'channel_id' => $channelId,
+                    'user_chat_id' => $chatId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
                 $notSubscribed[] = $channelId;
             }
         }
@@ -246,29 +262,50 @@ class PollBotService
     /**
      * Show subscription required message
      */
-    protected function showSubscriptionRequired(string $chatId, Poll $poll, array $channels): void
+    protected function showSubscriptionRequired(string $chatId, Poll $poll, array $notSubscribedChannels): void
     {
         $message = "📢 <b>Kanallarimizga obuna bo'ling!</b>\n\n";
         $message .= "Ovoz berish uchun quyidagi kanallarga obuna bo'lishingiz kerak:\n\n";
 
         $buttons = [];
-        foreach ($channels as $index => $channelId) {
+        $channelCount = 0;
+
+        // Show all required channels, not just the ones user is not subscribed to
+        foreach ($poll->required_channels as $channelId) {
             try {
                 $chat = $this->telegram->getChat(['chat_id' => $channelId]);
                 $channelName = $chat->getTitle();
                 $channelUsername = $chat->getUsername();
 
+                $channelCount++;
+
+                // Add to message text
                 if ($channelUsername) {
+                    $isSubscribed = !in_array($channelId, $notSubscribedChannels);
+                    $statusEmoji = $isSubscribed ? '✅' : '❌';
+                    $message .= "{$statusEmoji} <b>{$channelName}</b> (@{$channelUsername})\n";
+
+                    // Add button
                     $buttons[] = [
                         [
                             'text' => "📢 {$channelName}",
                             'url' => "https://t.me/{$channelUsername}"
                         ]
                     ];
+                } else {
+                    $message .= "❌ <b>{$channelName}</b>\n";
                 }
             } catch (\Exception $e) {
-                Log::error('Get channel info error: ' . $e->getMessage());
+                Log::error('Get channel info error', [
+                    'channel_id' => $channelId,
+                    'error' => $e->getMessage()
+                ]);
+                $message .= "❌ Kanal (ID: {$channelId})\n";
             }
+        }
+
+        if ($channelCount > 0) {
+            $message .= "\nBarcha kanallarga obuna bo'lgandan keyin \"✅ Obunani tekshirish\" tugmasini bosing.";
         }
 
         // Add check subscription button
