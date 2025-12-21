@@ -135,7 +135,8 @@ class PollBotService
         preg_match('/\/start poll_(\d+)(?:_vote_(\d+))?/', $text, $matches);
 
         if (!isset($matches[1])) {
-            $this->sendMessage($chatId, "Xush kelibsiz! Iltimos, so'rovnoma linkini bosib kirish orqali ishtirok eting.");
+            // Show list of active polls
+            $this->showActivePolls($chatId);
             return;
         }
 
@@ -710,14 +711,29 @@ class PollBotService
             'recaptcha_verified' => true, // Auto-verify if we reached this point
         ]);
 
+        // Refresh data to get updated counts first
+        $poll->refresh();
+        $candidate->refresh();
+
         // Update channel posts
         $this->updateChannelPosts($poll);
 
-        // Send success message
+        // Send success message with results
         $message = "🎉 <b>Rahmat!</b>\n\n";
         $message .= "Sizning ovozingiz <b>{$candidate->name}</b> nomzodiga qabul qilindi.\n\n";
-        $message .= "Hozirgi natijalar:\n";
-        $message .= "Jami ovozlar: <b>{$poll->total_votes}</b>";
+
+        $message .= "📊 <b>Hozirgi natijalar:</b>\n\n";
+
+        // Show all candidates with vote counts
+        $candidates = $poll->candidates()->where('is_active', true)->orderBy('vote_count', 'desc')->get();
+        foreach ($candidates as $cand) {
+            $percentage = $poll->total_votes > 0 ? round(($cand->vote_count / $poll->total_votes) * 100, 1) : 0;
+            $emoji = ($cand->id === $candidate->id) ? '✅ ' : '';
+            $message .= "{$emoji}<b>{$cand->name}</b>\n";
+            $message .= "   {$cand->vote_count} ovoz ({$percentage}%)\n\n";
+        }
+
+        $message .= "📈 Jami ovozlar: <b>{$poll->total_votes}</b>";
 
         $this->editMessageText($chatId, $messageId, $message);
     }
@@ -907,24 +923,55 @@ class PollBotService
     {
         $posts = $poll->channelPosts;
 
+        Log::info('Updating channel posts', [
+            'poll_id' => $poll->id,
+            'posts_count' => $posts->count(),
+            'total_votes' => $poll->total_votes,
+        ]);
+
         foreach ($posts as $post) {
             try {
                 $message = $this->generatePollMessage($poll);
                 $keyboard = $this->generatePollKeyboard($poll);
 
+                Log::info('Updating channel post', [
+                    'poll_id' => $poll->id,
+                    'channel_id' => $post->channel_id,
+                    'message_id' => $post->message_id,
+                    'has_image' => !empty($poll->image),
+                ]);
+
                 // Update only the caption and keyboard (can't change photo)
+                $result = null;
                 if ($poll->image && Storage::exists($poll->image)) {
-                    $this->editMessageCaption($post->channel_id, (int)$post->message_id, $message, $keyboard);
+                    $result = $this->editMessageCaption($post->channel_id, (int)$post->message_id, $message, $keyboard);
                 } else {
-                    $this->editMessageText($post->channel_id, (int)$post->message_id, $message, $keyboard);
+                    $result = $this->editMessageText($post->channel_id, (int)$post->message_id, $message, $keyboard);
                 }
 
-                $post->update([
-                    'last_updated_at' => now(),
-                    'update_count' => $post->update_count + 1,
-                ]);
+                if ($result) {
+                    $post->update([
+                        'last_updated_at' => now(),
+                        'update_count' => $post->update_count + 1,
+                    ]);
+                    Log::info('Channel post updated successfully', [
+                        'poll_id' => $poll->id,
+                        'message_id' => $post->message_id,
+                    ]);
+                } else {
+                    Log::warning('Channel post update returned null', [
+                        'poll_id' => $poll->id,
+                        'message_id' => $post->message_id,
+                    ]);
+                }
             } catch (\Exception $e) {
-                Log::error('Update channel post error: ' . $e->getMessage());
+                Log::error('Update channel post error', [
+                    'poll_id' => $poll->id,
+                    'channel_id' => $post->channel_id ?? 'unknown',
+                    'message_id' => $post->message_id ?? 'unknown',
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
             }
         }
     }
@@ -1106,6 +1153,49 @@ class PollBotService
         $message .= "\n📈 Jami ovozlar: <b>{$poll->total_votes}</b>";
 
         $this->sendMessage($chatId, $message);
+    }
+
+    /**
+     * Show list of active polls
+     */
+    protected function showActivePolls(string $chatId): void
+    {
+        $activePolls = Poll::where('is_active', true)
+            ->where('end_date', '>', now())
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        if ($activePolls->isEmpty()) {
+            $message = "🗳 <b>Xush kelibsiz!</b>\n\n";
+            $message .= "Hozirda faol so'rovnomalar yo'q.\n\n";
+            $message .= "Yangi so'rovnoma e'lon qilinganida sizga xabar beramiz.";
+            $this->sendMessage($chatId, $message);
+            return;
+        }
+
+        $message = "🗳 <b>Faol so'rovnomalar:</b>\n\n";
+        $message .= "Ovoz berish uchun quyidagi so'rovnomalardan birini tanlang:\n\n";
+
+        $buttons = [];
+        foreach ($activePolls as $poll) {
+            $daysLeft = now()->diffInDays($poll->end_date, false);
+            $timeInfo = $daysLeft > 0
+                ? "(" . ceil($daysLeft) . " kun qoldi)"
+                : "(Bugun tugaydi)";
+
+            $message .= "📊 <b>{$poll->title}</b>\n";
+            $message .= "   Jami ovozlar: {$poll->total_votes} {$timeInfo}\n\n";
+
+            $buttons[] = [
+                [
+                    'text' => "🗳 {$poll->title}",
+                    'url' => "https://t.me/" . config('telegram.poll_bot_username') . "?start=poll_{$poll->id}"
+                ]
+            ];
+        }
+
+        $keyboard = ['inline_keyboard' => $buttons];
+        $this->sendMessage($chatId, $message, $keyboard);
     }
 
     /**

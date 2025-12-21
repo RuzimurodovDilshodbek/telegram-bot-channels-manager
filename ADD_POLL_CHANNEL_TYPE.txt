@@ -1,0 +1,182 @@
+=====================================================
+CHANNELS GA "POLL" TYPE QO'SHILDI
+=====================================================
+
+NIMA QILINDI:
+-----------------------------------------------------
+
+✅ Migration yaratildi - poll type qo'shildi
+✅ Channel model - scopePoll() qo'shildi
+✅ ChannelResource - form da poll option
+✅ ChannelResource - filter da poll option
+
+=====================================================
+YANGI FAYLLAR:
+=====================================================
+
+database/migrations/2025_12_21_100000_add_poll_type_to_channels.php
+- PostgreSQL enum constraint o'zgartirildi
+- 'poll' type qo'shildi
+
+=====================================================
+O'ZGARGAN FAYLLAR:
+=====================================================
+
+1. app/Models/Channel.php
+   - scopePoll() method qo'shildi
+   - Channel::poll()->get() ishlatish mumkin
+
+2. app/Filament/Resources/ChannelResource.php
+   - Form da: 'poll' => 'So'rovnoma kanali'
+   - Filter da: 'poll' => 'So'rovnoma'
+
+=====================================================
+SERVERGA O'RNATISH:
+=====================================================
+
+3 TA FAYL YUKLASH:
+-----------------------------------------------------
+
+# 1. Migration
+scp database/migrations/2025_12_21_100000_add_poll_type_to_channels.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/database/migrations/
+
+# 2. Channel Model
+scp app/Models/Channel.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Models/
+
+# 3. ChannelResource
+scp app/Filament/Resources/ChannelResource.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Filament/Resources/
+
+
+SERVERDA MIGRATION ISHLATISH:
+-----------------------------------------------------
+
+ssh root@161.97.88.95
+cd /var/www/telegram-bot-channels-manager
+
+# Migration
+php artisan migrate
+
+# Cache
+php artisan config:clear
+php artisan cache:clear
+php artisan filament:cache-components
+
+
+=====================================================
+ISHLATISH:
+=====================================================
+
+1. ADMIN PANELDA:
+
+Channels -> Create:
+- Kanal turi: So'rovnoma kanali ✅
+
+Channels -> Filter:
+- Kanal turi: So'rovnoma ✅
+
+2. KODDA:
+
+// Poll kanallarni olish
+$pollChannels = Channel::poll()->active()->get();
+
+// Bitta poll kanal
+$pollChannel = Channel::poll()->first();
+
+// Poll kanallarga post yuborish
+foreach (Channel::poll()->active()->get() as $channel) {
+    // Send message
+}
+
+=====================================================
+DATABASE:
+=====================================================
+
+OLDINGI ENUM:
+type IN ('management', 'main', 'region')
+
+YANGI ENUM:
+type IN ('management', 'main', 'region', 'poll')
+
+=====================================================
+POLL KANAL MISOLI:
+=====================================================
+
+{
+  "type": "poll",
+  "name": "So'rovnoma kanali",
+  "telegram_chat_id": "-1001234567890",
+  "username": "sorovnoma_kanali",
+  "is_active": true,
+  "description": "So'rovnomalar uchun kanal"
+}
+
+=====================================================
+MUAMMOLARNI HAL QILISH:
+=====================================================
+
+MUAMMO 1: Migration error
+-----------------------------------------------------
+
+Agar xato chiqsa:
+
+SQLSTATE[23514]: Check violation...
+
+Yechim:
+1. Database ga to'g'ridan-to'g'ri ulanish:
+   psql -U postgres telegram_bot_db
+
+2. Constraint ni qo'lda o'zgartirish:
+   ALTER TABLE channels DROP CONSTRAINT channels_type_check;
+   ALTER TABLE channels ADD CONSTRAINT channels_type_check
+   CHECK (type::text = ANY (ARRAY['management'::character varying,
+   'main'::character varying, 'region'::character varying,
+   'poll'::character varying]::text[]));
+
+
+MUAMMO 2: Admin panelda ko'rinmayabdi
+-----------------------------------------------------
+
+Yechim:
+php artisan filament:cache-components
+php artisan cache:clear
+
+
+MUAMMO 3: Eski poll type bor edi
+-----------------------------------------------------
+
+Agar database da allaqachon poll type bo'lgan kanallar bo'lsa:
+
+SELECT * FROM channels WHERE type = 'poll';
+
+Agar bor bo'lsa, migration avtomatik qo'llash mumkin.
+Agar yo'q bo'lsa, yangi yaratish kerak.
+
+=====================================================
+KELAJAKDA:
+=====================================================
+
+Poll kanallar PollBotService da ishlatiladi:
+
+1. So'rovnomalarni faqat poll kanallarga yuborish
+2. Poll kanallarda special formatting
+3. Poll natijalarini poll kanallarga yuborish
+
+Misol:
+$pollChannels = Channel::poll()->active()->get();
+foreach ($pollChannels as $channel) {
+    $this->publishPollToChannel($poll, $channel);
+}
+
+=====================================================
+XULOSA:
+=====================================================
+
+✅ Poll type qo'shildi
+✅ Migration yaratildi
+✅ Model yangilandi
+✅ Admin panel yangilandi
+✅ Ishlatishga tayyor
+
+Endi poll kanallari tizimda to'liq qo'llab-quvvatlanadi! 🎉
+
+=====================================================

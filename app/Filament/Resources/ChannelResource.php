@@ -179,6 +179,7 @@ class ChannelResource extends Resource
                         'management' => 'Boshqaruv',
                         'main' => 'Asosiy',
                         'region' => 'Hududiy',
+                        'poll' => 'So\'rovnoma',
                     ]),
 
                 Tables\Filters\TernaryFilter::make('is_active')
