@@ -118,21 +118,21 @@ class PollBotService
             return;
         }
 
-        // Request IP verification first (Web3-based real IP collection)
-        if (!$participant->ip_verified) {
-            $this->requestIpVerification($chatId, $poll, $participant);
-            return;
-        }
-
-        // Request phone number if required
+        // 1. Request phone number if required
         if ($poll->require_phone && !$participant->phone_verified) {
             $this->requestPhoneNumber($chatId, $poll);
             return;
         }
 
-        // Check subscription if required
+        // 2. Check subscription if required
         if ($poll->require_subscription && !$participant->subscription_verified) {
             $this->checkSubscription($chatId, $poll, $participant);
+            return;
+        }
+
+        // 3. Request IP verification and ReCaptcha (combined in Web3 WebApp)
+        if (!$participant->ip_verified || ($poll->enable_recaptcha && !$participant->recaptcha_verified)) {
+            $this->requestIpVerification($chatId, $poll, $participant, $preselectedCandidateId);
             return;
         }
 
@@ -150,44 +150,44 @@ class PollBotService
     }
 
     /**
-     * Request IP verification from user (Web3-based real IP collection)
+     * Request IP verification from user (Web3-based real IP collection + ReCaptcha)
      */
-    protected function requestIpVerification(string $chatId, Poll $poll, PollParticipant $participant): void
+    protected function requestIpVerification(string $chatId, Poll $poll, PollParticipant $participant, ?int $candidateId = null): void
     {
         // Generate secure token
         $token = md5($poll->id . '_' . $chatId . '_' . config('app.key'));
 
-        // Build IP collection URL
-        $ipCollectorUrl = config('app.url') . '/api/ip-collector?' . http_build_query([
+        // Build IP collection URL with candidate info
+        $params = [
             'poll_id' => $poll->id,
             'chat_id' => $chatId,
             'token' => $token
-        ]);
+        ];
 
-        Log::info('Requesting IP verification', [
+        if ($candidateId) {
+            $params['candidate_id'] = $candidateId;
+        }
+
+        // Use Telegram WebApp URL instead of regular URL
+        $ipCollectorUrl = config('app.url') . '/api/ip-collector?' . http_build_query($params);
+
+        Log::info('Requesting IP verification with ReCaptcha', [
             'poll_id' => $poll->id,
             'chat_id' => $chatId,
+            'candidate_id' => $candidateId,
             'url' => $ipCollectorUrl
         ]);
 
         $message = "🔐 <b>Xavfsizlik tekshiruvi</b>\n\n";
         $message .= "Botimiz spam va soxta ovozlardan himoyalangan.\n\n";
-        $message .= "1️⃣ Quyidagi \"Xavfsizlik tekshiruvi\" tugmasini bosing\n";
-        $message .= "2️⃣ Ochilgan sahifada 3-5 soniya kuting\n";
-        $message .= "3️⃣ Telegram botga qaytib, \"✅ Davom etish\" tugmasini bosing";
+        $message .= "Quyidagi tugmani bosib oddiy savolga javob bering.";
 
         $keyboard = [
             'inline_keyboard' => [
                 [
                     [
-                        'text' => '🔐 Xavfsizlik tekshiruvi',
-                        'url' => $ipCollectorUrl
-                    ]
-                ],
-                [
-                    [
-                        'text' => '✅ Davom etish',
-                        'callback_data' => "check_ip_{$poll->id}"
+                        'text' => '🔐 Xavfsizlik tekshiruvidan o\'tish',
+                        'web_app' => ['url' => $ipCollectorUrl] // Telegram WebApp
                     ]
                 ]
             ]
@@ -425,37 +425,6 @@ class PollBotService
         // Answer callback to remove loading state
         $this->telegram->answerCallbackQuery(['callback_query_id' => $callbackQuery['id']]);
 
-        // Check IP verification
-        if (str_starts_with($data, 'check_ip_')) {
-            $pollId = str_replace('check_ip_', '', $data);
-            $poll = Poll::find($pollId);
-            $participant = PollParticipant::where('poll_id', $pollId)->where('chat_id', $chatId)->first();
-
-            if ($poll && $participant) {
-                // Check if IP was verified
-                if ($participant->ip_verified) {
-                    // Continue with phone verification
-                    if ($poll->require_phone && !$participant->phone_verified) {
-                        $this->requestPhoneNumber($chatId, $poll);
-                        return;
-                    }
-
-                    // Check subscription if required
-                    if ($poll->require_subscription && !$participant->subscription_verified) {
-                        $this->checkSubscription($chatId, $poll, $participant);
-                        return;
-                    }
-
-                    // Show candidates
-                    $this->showCandidates($chatId, $poll);
-                } else {
-                    // IP not verified yet
-                    $this->sendMessage($chatId, "❌ Xavfsizlik tekshiruvi hali yakunlanmadi. Iltimos, avval \"🔐 Xavfsizlik tekshiruvi\" tugmasini bosing va ochilgan sahifada 3-5 soniya kuting.");
-                }
-            }
-            return;
-        }
-
         // Check subscription
         if (str_starts_with($data, 'check_sub_')) {
             $pollId = str_replace('check_sub_', '', $data);
@@ -495,38 +464,6 @@ class PollBotService
 
             if ($poll) {
                 $this->showCandidates($chatId, $poll);
-            }
-            return;
-        }
-
-        // ReCaptcha verification
-        if (str_starts_with($data, 'captcha_')) {
-            $parts = explode('_', $data);
-            $pollId = $parts[1];
-            $candidateId = $parts[2];
-            $userAnswer = $parts[3];
-            $correctAnswer = $parts[4];
-
-            if ($userAnswer == $correctAnswer) {
-                // Mark as verified
-                $participant = PollParticipant::where('poll_id', $pollId)
-                    ->where('chat_id', $chatId)
-                    ->first();
-
-                if ($participant) {
-                    $participant->update(['recaptcha_verified' => true]);
-
-                    // Continue with voting
-                    $this->handleVote($chatId, $from, $pollId, $candidateId, $messageId);
-                }
-            } else {
-                // Wrong answer
-                $this->sendMessage($chatId, "❌ Noto'g'ri javob! Iltimos, qaytadan urinib ko'ring.");
-                $poll = Poll::find($pollId);
-                $candidate = PollCandidate::find($candidateId);
-                if ($poll && $candidate) {
-                    $this->showRecaptcha($chatId, $poll, $candidate);
-                }
             }
             return;
         }
@@ -586,11 +523,6 @@ class PollBotService
         // Check if participant is fully verified
         if (!$participant->isFullyVerified()) {
             // Check what's missing
-            if (!$participant->ip_verified) {
-                $this->requestIpVerification($chatId, $poll, $participant);
-                return;
-            }
-
             if ($poll->require_phone && !$participant->phone_verified) {
                 $this->requestPhoneNumber($chatId, $poll);
                 return;
@@ -601,8 +533,9 @@ class PollBotService
                 return;
             }
 
-            if ($poll->enable_recaptcha && !$participant->recaptcha_verified) {
-                $this->showRecaptcha($chatId, $poll, $candidate);
+            // IP and ReCaptcha are verified together in WebApp
+            if (!$participant->ip_verified || ($poll->enable_recaptcha && !$participant->recaptcha_verified)) {
+                $this->requestIpVerification($chatId, $poll, $participant, $candidateId);
                 return;
             }
         }

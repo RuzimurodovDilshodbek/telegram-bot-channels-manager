@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Xavfsizlik tekshiruvi</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
@@ -12,51 +13,106 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
             padding: 20px;
+            min-height: 100vh;
         }
 
         .container {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
             max-width: 400px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            text-align: center;
+            margin: 0 auto;
         }
 
         .icon {
-            font-size: 64px;
+            font-size: 48px;
+            text-align: center;
             margin-bottom: 20px;
         }
 
         h1 {
-            color: #333;
-            font-size: 24px;
+            font-size: 20px;
+            font-weight: 600;
             margin-bottom: 10px;
+            text-align: center;
         }
 
-        p {
-            color: #666;
-            font-size: 16px;
-            line-height: 1.6;
-            margin-bottom: 30px;
+        .question {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .question-text {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .options {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .option-btn {
+            background: var(--tg-theme-button-color, #3390ec);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .option-btn:active {
+            opacity: 0.7;
+        }
+
+        .option-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
         }
 
         .loader {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #667eea;
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--tg-theme-hint-color, #999);
+            border-top: 4px solid var(--tg-theme-button-color, #3390ec);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto;
         }
 
         @keyframes spin {
@@ -64,80 +120,95 @@
             100% { transform: rotate(360deg); }
         }
 
-        .status {
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            font-weight: 500;
-        }
-
-        .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .close-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            font-size: 16px;
-            cursor: pointer;
-            margin-top: 20px;
-            transition: background 0.3s;
-            display: none;
-        }
-
-        .close-btn:hover {
-            background: #5568d3;
-        }
-
-        .ip-info {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            font-family: monospace;
+        .hint {
+            text-align: center;
+            color: var(--tg-theme-hint-color, #999);
             font-size: 14px;
-            color: #495057;
-            display: none;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="icon">🔐</div>
-        <h1>Xavfsizlik tekshiruvi</h1>
-        <p>Botimiz spam va soxta ovozlardan himoyalangan. Sizning haqiqiy IP manzilingiz tekshirilmoqda...</p>
+        <div class="icon">🤖</div>
+        <h1>Inson ekanligingizni tasdiqlang</h1>
 
-        <div class="loader" id="loader"></div>
+        <div class="question" id="questionBlock">
+            <div class="question-text" id="questionText">Hisobni yeching:</div>
+            <div class="options" id="optionsBlock"></div>
+        </div>
 
-        <div class="status" id="status" style="display: none;"></div>
-        <div class="ip-info" id="ipInfo"></div>
+        <div class="loader" id="loader">
+            <div class="loader-spinner"></div>
+            <p style="margin-top: 10px;">Tekshirilmoqda...</p>
+        </div>
 
-        <button class="close-btn" id="closeBtn" onclick="closeWindow()">Telegram botga qaytish</button>
+        <div class="status" id="status"></div>
+        <div class="hint">IP manzilingiz xavfsizlik uchun avtomatik saqlanadi</div>
     </div>
 
     <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.ready();
+
         const pollId = '{{ $poll_id }}';
         const chatId = '{{ $chat_id }}';
         const token = '{{ $token }}';
+        const candidateId = '{{ $candidate_id ?? "" }}';
 
-        // Auto-collect IP on page load
-        window.addEventListener('DOMContentLoaded', function() {
-            collectIp();
+        // Generate simple math question
+        const num1 = Math.floor(Math.random() * 10) + 1;
+        const num2 = Math.floor(Math.random() * 10) + 1;
+        const correctAnswer = num1 + num2;
+
+        // Generate 4 options (including correct answer)
+        const options = [correctAnswer];
+        while (options.length < 4) {
+            const wrong = Math.floor(Math.random() * 20) + 1;
+            if (!options.includes(wrong)) {
+                options.push(wrong);
+            }
+        }
+
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+
+        // Display question
+        document.getElementById('questionText').textContent = `${num1} + ${num2} = ?`;
+
+        // Display options
+        const optionsBlock = document.getElementById('optionsBlock');
+        options.forEach(option => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.textContent = option;
+            btn.onclick = () => checkAnswer(option);
+            optionsBlock.appendChild(btn);
         });
 
-        async function collectIp() {
+        async function checkAnswer(userAnswer) {
+            // Disable all buttons
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.disabled = true;
+            });
+
+            const isCorrect = userAnswer === correctAnswer;
+
+            if (!isCorrect) {
+                showStatus('error', '❌ Noto\'g\'ri javob! Qaytadan urinib ko\'ring.');
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
+                return;
+            }
+
+            // Show loader
+            document.getElementById('questionBlock').style.display = 'none';
+            document.getElementById('loader').style.display = 'block';
+
             try {
+                // Submit answer and collect IP
                 const response = await fetch('/api/collect-ip', {
                     method: 'POST',
                     headers: {
@@ -148,64 +219,45 @@
                     body: JSON.stringify({
                         poll_id: pollId,
                         chat_id: chatId,
-                        token: token
+                        token: token,
+                        candidate_id: candidateId,
+                        captcha_answer: userAnswer,
+                        captcha_correct: correctAnswer
                     })
                 });
 
                 const data = await response.json();
 
-                // Hide loader
                 document.getElementById('loader').style.display = 'none';
 
-                const statusEl = document.getElementById('status');
-                const ipInfoEl = document.getElementById('ipInfo');
-                const closeBtnEl = document.getElementById('closeBtn');
-
-                statusEl.style.display = 'block';
-
                 if (data.success) {
-                    statusEl.className = 'status success';
-                    statusEl.innerHTML = '✅ Xavfsizlik tekshiruvi muvaffaqiyatli o\'tdi!<br>Iltimos, Telegram botga qayting.';
+                    showStatus('success', '✅ Tasdiqlandi! Telegram botga qaytilmoqda...');
 
-                    ipInfoEl.style.display = 'block';
-                    ipInfoEl.textContent = 'Sizning IP: ' + data.ip;
-
-                    closeBtnEl.style.display = 'inline-block';
-
-                    // Auto-close after 3 seconds (if opened in Telegram WebApp)
+                    // Close WebApp after 1 second
                     setTimeout(() => {
-                        if (window.Telegram && window.Telegram.WebApp) {
-                            window.Telegram.WebApp.close();
-                        }
-                    }, 3000);
-
+                        tg.close();
+                    }, 1000);
                 } else {
-                    statusEl.className = 'status error';
-                    statusEl.textContent = '❌ Xato: ' + data.message;
-                    closeBtnEl.style.display = 'inline-block';
+                    showStatus('error', '❌ Xato: ' + data.message);
                 }
 
             } catch (error) {
                 document.getElementById('loader').style.display = 'none';
-                const statusEl = document.getElementById('status');
-                statusEl.style.display = 'block';
-                statusEl.className = 'status error';
-                statusEl.textContent = '❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko\'ring.';
-                document.getElementById('closeBtn').style.display = 'inline-block';
+                showStatus('error', '❌ Xatolik yuz berdi. Iltimos, qaytadan urinib ko\'ring.');
             }
         }
 
-        function closeWindow() {
-            // Try Telegram WebApp close
-            if (window.Telegram && window.Telegram.WebApp) {
-                window.Telegram.WebApp.close();
-            } else {
-                // Fallback: close window or go back
-                window.close();
-                if (!window.closed) {
-                    window.history.back();
-                }
-            }
+        function showStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status ' + type;
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+        }
+
+        // Set theme colors
+        if (tg.themeParams) {
+            document.body.style.backgroundColor = tg.themeParams.bg_color || '#ffffff';
+            document.body.style.color = tg.themeParams.text_color || '#000000';
         }
     </script>
 </body>
