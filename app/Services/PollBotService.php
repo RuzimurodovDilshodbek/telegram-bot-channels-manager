@@ -53,6 +53,12 @@ class PollBotService
         $chatId = $message['chat']['id'];
         $from = $message['from'];
 
+        // Handle WebApp data (verification complete)
+        if (isset($message['web_app_data'])) {
+            $this->handleWebAppData($chatId, $from, $message['web_app_data']);
+            return;
+        }
+
         // Handle /start command with poll parameter
         if (isset($message['text']) && str_starts_with($message['text'], '/start')) {
             $this->handleStart($chatId, $from, $message['text']);
@@ -67,6 +73,57 @@ class PollBotService
 
         // Default response
         $this->sendMessage($chatId, "Iltimos, so'rovnoma linkini bosib kirish orqali ishtirok eting.");
+    }
+
+    /**
+     * Handle WebApp data (verification complete callback)
+     */
+    protected function handleWebAppData(string $chatId, array $from, array $webAppData): void
+    {
+        try {
+            $data = json_decode($webAppData['data'], true);
+
+            Log::info('WebApp data received', [
+                'chat_id' => $chatId,
+                'data' => $data
+            ]);
+
+            if (!$data || !isset($data['action']) || $data['action'] !== 'verification_complete') {
+                return;
+            }
+
+            $pollId = $data['poll_id'] ?? null;
+            $candidateId = $data['candidate_id'] ?? null;
+
+            if (!$pollId) {
+                return;
+            }
+
+            $poll = Poll::find($pollId);
+            $participant = PollParticipant::where('poll_id', $pollId)->where('chat_id', $chatId)->first();
+
+            if (!$poll || !$participant) {
+                return;
+            }
+
+            // Verification complete - continue with voting flow
+            if ($candidateId) {
+                // User has preselected a candidate - show vote confirmation
+                $candidate = PollCandidate::find($candidateId);
+                if ($candidate && $candidate->poll_id == $poll->id) {
+                    $this->showVoteConfirmation($chatId, $poll, $candidate);
+                    return;
+                }
+            }
+
+            // No preselected candidate - show all candidates
+            $this->showCandidates($chatId, $poll);
+
+        } catch (\Exception $e) {
+            Log::error('WebApp data handling error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
     }
 
     /**

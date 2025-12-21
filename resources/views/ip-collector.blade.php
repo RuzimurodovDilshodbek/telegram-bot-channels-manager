@@ -233,10 +233,18 @@
                 if (data.success) {
                     showStatus('success', '✅ Tasdiqlandi! Telegram botga qaytilmoqda...');
 
-                    // Close WebApp after 1 second
+                    // Send data back to bot and close WebApp
                     setTimeout(() => {
-                        tg.close();
-                    }, 1000);
+                        // Send verification complete data to bot
+                        const responseData = JSON.stringify({
+                            action: 'verification_complete',
+                            poll_id: pollId,
+                            candidate_id: candidateId,
+                            verified: true
+                        });
+
+                        tg.sendData(responseData);
+                    }, 500);
                 } else {
                     showStatus('error', '❌ Xato: ' + data.message);
                 }
