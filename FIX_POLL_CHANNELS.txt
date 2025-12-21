@@ -1,0 +1,106 @@
+=====================================================
+SO'ROVNOMA KANALLARI MUAMMOSINI HAL QILISH
+=====================================================
+
+MUAMMO:
+- Kanal ID: -1001635044531 topilmayapti (chat not found)
+- Bu kanal yo'q yoki bot unga qo'shilmagan
+
+=====================================================
+HAL QILISH YO'LLARI:
+=====================================================
+
+VARIANT 1: So'rovnomani tahrirlash (ENG OSON)
+-----------------------------------------------------
+
+1. Admin panelga kiring:
+   https://admin.ishchi-bozor.uz/admin/polls
+
+2. So'rovnomani tahrirlang
+
+3. "Majburiy kanallar" bo'limida:
+   - Noto'g'ri kanalni olib tashlang
+   - To'g'ri kanalni tanlang
+
+4. Saqlang
+
+
+VARIANT 2: Database dan tekshirish
+-----------------------------------------------------
+
+Serverda:
+
+cd /var/www/telegram-bot-channels-manager
+
+# So'rovnomaning kanal ID larini ko'rish:
+php artisan tinker
+
+>>> $poll = \App\Models\Poll::find(1);
+>>> $poll->required_channels;
+
+# Natijada qanday ID lar ko'rinadi?
+# Masalan: ["-1002141141713", "-1001635044531"]
+
+
+# Barcha kanallarni ko'rish:
+>>> \App\Models\Channel::all(['id', 'name', 'telegram_chat_id']);
+
+# Qaysi kanallar mavjud?
+# Noto'g'ri ID ni to'g'rilash:
+
+>>> $poll->required_channels = ["-1002141141713"];
+>>> $poll->save();
+
+
+VARIANT 3: Kanalni database ga qo'shish
+-----------------------------------------------------
+
+Agar -1001635044531 kanal mavjud bo'lsa lekin
+database da yo'q bo'lsa:
+
+1. Admin panelda Channels bo'limiga o'ting
+2. Yangi kanal qo'shing:
+   - Telegram Chat ID: -1001635044531
+   - Name: Kanal nomi
+   - Username: kanal_username (@ siz)
+   - Type: main yoki region
+   - Is Active: true
+
+3. Saqlang
+
+4. So'rovnomani tahrirlang va bu kanalni tanlang
+
+
+VARIANT 4: Botni kanalga qo'shish
+-----------------------------------------------------
+
+Agar kanal mavjud lekin bot unga qo'shilmagan bo'lsa:
+
+1. Kanalga o'ting
+2. Settings -> Administrators
+3. Add Administrator
+4. @sorovnoma_universal_bot ni qo'shing
+5. "Can post messages" huquqini bering
+6. Save
+
+
+=====================================================
+TEKSHIRISH:
+=====================================================
+
+Faylni serverga yuklang va cache tozalang:
+
+scp app/Services/PollBotService.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Services/
+
+Serverda:
+cd /var/www/telegram-bot-channels-manager
+php artisan config:clear
+php artisan cache:clear
+
+Keyin qayta test qiling va loglarni ko'ring:
+tail -f storage/logs/laravel.log
+
+Endi logda "full_response" ham ko'rinadi - bu
+Telegram API dan kelgan to'liq javob.
+
+=====================================================

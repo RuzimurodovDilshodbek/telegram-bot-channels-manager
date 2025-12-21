@@ -225,16 +225,18 @@ class PollBotService
                     'channel_id' => $channelId,
                 ]);
 
-                $member = $this->telegram->getChatMember([
+                $response = $this->telegram->getChatMember([
                     'chat_id' => $channelId,
                     'user_id' => $chatId,
                 ]);
 
-                $status = $member->getStatus();
+                // Get status from response array
+                $status = $response['status'] ?? ($response->get('status') ?? 'left');
 
                 Log::info('Subscription status', [
                     'channel_id' => $channelId,
                     'status' => $status,
+                    'full_response' => $response,
                 ]);
 
                 if (!in_array($status, ['member', 'administrator', 'creator'])) {
@@ -245,8 +247,8 @@ class PollBotService
                     'channel_id' => $channelId,
                     'user_chat_id' => $chatId,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
                 ]);
+                // Agar kanal topilmasa yoki xato bo'lsa, obuna bo'lmagan deb hisoblaymiz
                 $notSubscribed[] = $channelId;
             }
         }
