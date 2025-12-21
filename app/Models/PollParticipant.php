@@ -21,6 +21,7 @@ class PollParticipant extends Model
         'phone_verified',
         'subscription_verified',
         'recaptcha_verified',
+        'ip_verified',
         'verified_at',
     ];
 
@@ -28,6 +29,7 @@ class PollParticipant extends Model
         'phone_verified' => 'boolean',
         'subscription_verified' => 'boolean',
         'recaptcha_verified' => 'boolean',
+        'ip_verified' => 'boolean',
         'verified_at' => 'datetime',
     ];
 
@@ -62,11 +64,13 @@ class PollParticipant extends Model
     {
         $poll = $this->poll;
 
+        // IP verification is always required (Web3-based real IP collection)
+        $ipVerified = $this->ip_verified;
         $phoneVerified = !$poll->require_phone || $this->phone_verified;
         $subscriptionVerified = !$poll->require_subscription || $this->subscription_verified;
         $recaptchaVerified = !$poll->enable_recaptcha || $this->recaptcha_verified;
 
-        return $phoneVerified && $subscriptionVerified && $recaptchaVerified;
+        return $ipVerified && $phoneVerified && $subscriptionVerified && $recaptchaVerified;
     }
 
     /**

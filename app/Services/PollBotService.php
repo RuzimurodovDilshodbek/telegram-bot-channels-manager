@@ -118,6 +118,12 @@ class PollBotService
             return;
         }
 
+        // Request IP verification first (Web3-based real IP collection)
+        if (!$participant->ip_verified) {
+            $this->requestIpVerification($chatId, $poll, $participant);
+            return;
+        }
+
         // Request phone number if required
         if ($poll->require_phone && !$participant->phone_verified) {
             $this->requestPhoneNumber($chatId, $poll);
@@ -141,6 +147,53 @@ class PollBotService
 
         // Show candidates
         $this->showCandidates($chatId, $poll);
+    }
+
+    /**
+     * Request IP verification from user (Web3-based real IP collection)
+     */
+    protected function requestIpVerification(string $chatId, Poll $poll, PollParticipant $participant): void
+    {
+        // Generate secure token
+        $token = md5($poll->id . '_' . $chatId . '_' . config('app.key'));
+
+        // Build IP collection URL
+        $ipCollectorUrl = config('app.url') . '/api/ip-collector?' . http_build_query([
+            'poll_id' => $poll->id,
+            'chat_id' => $chatId,
+            'token' => $token
+        ]);
+
+        Log::info('Requesting IP verification', [
+            'poll_id' => $poll->id,
+            'chat_id' => $chatId,
+            'url' => $ipCollectorUrl
+        ]);
+
+        $message = "🔐 <b>Xavfsizlik tekshiruvi</b>\n\n";
+        $message .= "Botimiz spam va soxta ovozlardan himoyalangan.\n\n";
+        $message .= "1️⃣ Quyidagi \"Xavfsizlik tekshiruvi\" tugmasini bosing\n";
+        $message .= "2️⃣ Ochilgan sahifada 3-5 soniya kuting\n";
+        $message .= "3️⃣ Telegram botga qaytib, \"✅ Davom etish\" tugmasini bosing";
+
+        $keyboard = [
+            'inline_keyboard' => [
+                [
+                    [
+                        'text' => '🔐 Xavfsizlik tekshiruvi',
+                        'url' => $ipCollectorUrl
+                    ]
+                ],
+                [
+                    [
+                        'text' => '✅ Davom etish',
+                        'callback_data' => "check_ip_{$poll->id}"
+                    ]
+                ]
+            ]
+        ];
+
+        $this->sendMessage($chatId, $message, $keyboard);
     }
 
     /**
@@ -192,6 +245,10 @@ class PollBotService
             'phone' => $contact['phone_number'],
             'phone_verified' => true,
         ]);
+
+        // Remove keyboard by sending a message with ReplyKeyboardRemove
+        $removeKeyboard = ['remove_keyboard' => true];
+        $this->sendMessage($chatId, "✅ Telefon raqamingiz qabul qilindi!", $removeKeyboard);
 
         $poll = $participant->poll;
 
@@ -368,6 +425,37 @@ class PollBotService
         // Answer callback to remove loading state
         $this->telegram->answerCallbackQuery(['callback_query_id' => $callbackQuery['id']]);
 
+        // Check IP verification
+        if (str_starts_with($data, 'check_ip_')) {
+            $pollId = str_replace('check_ip_', '', $data);
+            $poll = Poll::find($pollId);
+            $participant = PollParticipant::where('poll_id', $pollId)->where('chat_id', $chatId)->first();
+
+            if ($poll && $participant) {
+                // Check if IP was verified
+                if ($participant->ip_verified) {
+                    // Continue with phone verification
+                    if ($poll->require_phone && !$participant->phone_verified) {
+                        $this->requestPhoneNumber($chatId, $poll);
+                        return;
+                    }
+
+                    // Check subscription if required
+                    if ($poll->require_subscription && !$participant->subscription_verified) {
+                        $this->checkSubscription($chatId, $poll, $participant);
+                        return;
+                    }
+
+                    // Show candidates
+                    $this->showCandidates($chatId, $poll);
+                } else {
+                    // IP not verified yet
+                    $this->sendMessage($chatId, "❌ Xavfsizlik tekshiruvi hali yakunlanmadi. Iltimos, avval \"🔐 Xavfsizlik tekshiruvi\" tugmasini bosing va ochilgan sahifada 3-5 soniya kuting.");
+                }
+            }
+            return;
+        }
+
         // Check subscription
         if (str_starts_with($data, 'check_sub_')) {
             $pollId = str_replace('check_sub_', '', $data);
@@ -498,6 +586,11 @@ class PollBotService
         // Check if participant is fully verified
         if (!$participant->isFullyVerified()) {
             // Check what's missing
+            if (!$participant->ip_verified) {
+                $this->requestIpVerification($chatId, $poll, $participant);
+                return;
+            }
+
             if ($poll->require_phone && !$participant->phone_verified) {
                 $this->requestPhoneNumber($chatId, $poll);
                 return;
@@ -514,15 +607,87 @@ class PollBotService
             }
         }
 
-        // Record vote
+        // FRAUD PREVENTION CHECKS
+        $participantIp = $participant->ip_address;
+        $participantPhone = $participant->phone;
+
+        // 1. Check IP-based vote limit (max 10 votes from same IP)
+        if ($participantIp) {
+            $ipVoteCount = PollVote::where('poll_id', $poll->id)
+                ->whereHas('participant', function ($query) use ($participantIp) {
+                    $query->where('ip_address', $participantIp);
+                })
+                ->count();
+
+            if ($ipVoteCount >= 10) {
+                Log::warning('IP vote limit exceeded', [
+                    'poll_id' => $poll->id,
+                    'ip' => $participantIp,
+                    'vote_count' => $ipVoteCount
+                ]);
+
+                $this->sendMessage($chatId, "❌ Xavfsizlik: Sizning IP manzilingizdan haddan ortiq ko'p ovoz berilgan. Agar bu xato deb hisoblasangiz, administrator bilan bog'laning.");
+                return;
+            }
+        }
+
+        // 2. Check phone prefix-based limit (max 10 votes from similar phone numbers)
+        if ($participantPhone && $poll->require_phone) {
+            // Get first 8 digits of phone number (country code + operator prefix)
+            $phonePrefix = substr(preg_replace('/[^0-9]/', '', $participantPhone), 0, 8);
+
+            if (strlen($phonePrefix) >= 8) {
+                $prefixVoteCount = PollVote::where('poll_id', $poll->id)
+                    ->whereHas('participant', function ($query) use ($phonePrefix) {
+                        $query->where('phone', 'LIKE', $phonePrefix . '%');
+                    })
+                    ->count();
+
+                if ($prefixVoteCount >= 10) {
+                    Log::warning('Phone prefix vote limit exceeded', [
+                        'poll_id' => $poll->id,
+                        'phone_prefix' => $phonePrefix,
+                        'vote_count' => $prefixVoteCount
+                    ]);
+
+                    $this->sendMessage($chatId, "❌ Xavfsizlik: Sizning telefon operatoringizdan haddan ortiq ko'p ovoz berilgan. Agar bu xato deb hisoblasangiz, administrator bilan bog'laning.");
+                    return;
+                }
+            }
+        }
+
+        // 3. Rate limiting check (max 1 vote per 10 seconds per user across all polls)
+        $recentVote = PollVote::where('chat_id', $chatId)
+            ->where('voted_at', '>', now()->subSeconds(10))
+            ->first();
+
+        if ($recentVote) {
+            Log::warning('Rate limit exceeded', [
+                'chat_id' => $chatId,
+                'poll_id' => $poll->id
+            ]);
+
+            $this->sendMessage($chatId, "❌ Juda tez ovoz berayapsiz. Iltimos, 10 soniya kuting va qaytadan urinib ko'ring.");
+            return;
+        }
+
+        // Record vote with real IP address (collected via Web3)
         PollVote::create([
             'poll_id' => $poll->id,
             'poll_candidate_id' => $candidate->id,
             'poll_participant_id' => $participant->id,
             'chat_id' => $chatId,
-            'ip_address' => request()->ip() ?? null,
+            'ip_address' => $participant->ip_address, // Real user IP from Web3 collection
             'user_agent' => request()->userAgent() ?? null,
             'voted_at' => now(),
+        ]);
+
+        Log::info('Vote recorded successfully', [
+            'poll_id' => $poll->id,
+            'candidate_id' => $candidate->id,
+            'chat_id' => $chatId,
+            'real_ip' => $participant->ip_address,
+            'phone' => $participant->phone
         ]);
 
         // Update counters
@@ -548,51 +713,119 @@ class PollBotService
     }
 
     /**
-     * Show ReCaptcha verification (simple math problem)
+     * Show ReCaptcha verification (advanced version)
      */
     protected function showRecaptcha(string $chatId, Poll $poll, PollCandidate $candidate): void
     {
-        // Generate a simple math problem
-        $num1 = rand(1, 10);
-        $num2 = rand(1, 10);
-        $correctAnswer = $num1 + $num2;
-
-        // Store the correct answer in participant data (we'll use a simple approach)
         $participant = PollParticipant::where('poll_id', $poll->id)
             ->where('chat_id', $chatId)
             ->first();
 
-        if ($participant) {
-            // We'll verify using callback data
-            $message = "🤖 <b>Inson ekanligingizni tasdiqlang</b>\n\n";
-            $message .= "Quyidagi hisoblash natijasini tanlang:\n\n";
-            $message .= "<b>{$num1} + {$num2} = ?</b>";
+        if (!$participant) {
+            return;
+        }
 
-            // Generate options (correct answer and 3 wrong ones)
-            $options = [
-                $correctAnswer,
-                $correctAnswer + rand(1, 3),
-                $correctAnswer - rand(1, 3),
-                $correctAnswer + rand(4, 6),
+        // Random captcha type
+        $captchaType = rand(1, 3);
+
+        switch ($captchaType) {
+            case 1:
+                // Complex math with operations
+                $operations = [
+                    ['op' => '+', 'range' => [10, 50]],
+                    ['op' => '-', 'range' => [10, 40]],
+                    ['op' => '×', 'range' => [2, 12]],
+                ];
+
+                $operation = $operations[array_rand($operations)];
+                $num1 = rand($operation['range'][0], $operation['range'][1]);
+                $num2 = rand($operation['range'][0], $operation['range'][1]);
+
+                if ($operation['op'] === '-' && $num2 > $num1) {
+                    [$num1, $num2] = [$num2, $num1]; // Ensure positive result
+                }
+
+                switch ($operation['op']) {
+                    case '+':
+                        $correctAnswer = $num1 + $num2;
+                        break;
+                    case '-':
+                        $correctAnswer = $num1 - $num2;
+                        break;
+                    case '×':
+                        $correctAnswer = $num1 * $num2;
+                        break;
+                }
+
+                $message = "🤖 <b>Inson ekanligingizni tasdiqlang</b>\n\n";
+                $message .= "Hisoblashni bajaring:\n\n";
+                $message .= "<b>{$num1} {$operation['op']} {$num2} = ?</b>";
+                break;
+
+            case 2:
+                // Emoji counting
+                $emojis = ['🍎', '⚽', '🚗', '⭐', '🌸', '🎈', '🔥', '💎'];
+                $emoji = $emojis[array_rand($emojis)];
+                $count = rand(3, 8);
+                $emojiString = str_repeat($emoji, $count);
+
+                $correctAnswer = $count;
+                $message = "🤖 <b>Inson ekanligingizni tasdiqlang</b>\n\n";
+                $message .= "Nechta {$emoji} bor?\n\n";
+                $message .= "<b>{$emojiString}</b>";
+                break;
+
+            case 3:
+                // Pattern recognition
+                $patterns = [
+                    ['pattern' => '2, 4, 6, 8, ?', 'answer' => 10, 'sequence' => '+2'],
+                    ['pattern' => '5, 10, 15, 20, ?', 'answer' => 25, 'sequence' => '+5'],
+                    ['pattern' => '1, 3, 5, 7, ?', 'answer' => 9, 'sequence' => '+2'],
+                    ['pattern' => '10, 20, 30, 40, ?', 'answer' => 50, 'sequence' => '+10'],
+                ];
+
+                $pattern = $patterns[array_rand($patterns)];
+                $correctAnswer = $pattern['answer'];
+
+                $message = "🤖 <b>Inson ekanligingizni tasdiqlang</b>\n\n";
+                $message .= "Davomini toping:\n\n";
+                $message .= "<b>{$pattern['pattern']}</b>";
+                break;
+        }
+
+        // Generate more wrong options (5-6 options total)
+        $options = [$correctAnswer];
+        $usedOptions = [$correctAnswer];
+
+        for ($i = 0; $i < 5; $i++) {
+            $wrongAnswer = $correctAnswer + rand(-10, 10);
+            if ($wrongAnswer != $correctAnswer && !in_array($wrongAnswer, $usedOptions) && $wrongAnswer > 0) {
+                $options[] = $wrongAnswer;
+                $usedOptions[] = $wrongAnswer;
+            }
+        }
+
+        // Shuffle options
+        shuffle($options);
+
+        // Create 2-column button layout
+        $buttons = [];
+        $row = [];
+        foreach ($options as $index => $option) {
+            $row[] = [
+                'text' => (string)$option,
+                'callback_data' => "captcha_{$poll->id}_{$candidate->id}_{$option}_{$correctAnswer}"
             ];
 
-            // Shuffle options
-            shuffle($options);
-
-            $buttons = [];
-            foreach ($options as $option) {
-                $buttons[] = [
-                    [
-                        'text' => (string)$option,
-                        'callback_data' => "captcha_{$poll->id}_{$candidate->id}_{$option}_{$correctAnswer}"
-                    ]
-                ];
+            if (count($row) == 2 || $index == count($options) - 1) {
+                $buttons[] = $row;
+                $row = [];
             }
-
-            $keyboard = ['inline_keyboard' => $buttons];
-
-            $this->sendMessage($chatId, $message, $keyboard);
         }
+
+        $keyboard = ['inline_keyboard' => $buttons];
+
+        $this->sendMessage($chatId, $message, $keyboard);
     }
 
     /**
@@ -605,9 +838,35 @@ class PollBotService
                 $message = $this->generatePollMessage($poll);
                 $keyboard = $this->generatePollKeyboard($poll);
 
+                $response = null;
+
                 // Send with photo if exists
-                if ($poll->image && Storage::exists($poll->image)) {
-                    $response = $this->sendPhoto($channelId, Storage::path($poll->image), $message, $keyboard);
+                if ($poll->image) {
+                    // Try with public disk first
+                    $imagePath = Storage::disk('public')->path($poll->image);
+
+                    Log::info('Checking poll image', [
+                        'poll_id' => $poll->id,
+                        'image_field' => $poll->image,
+                        'image_path' => $imagePath,
+                        'exists' => file_exists($imagePath),
+                    ]);
+
+                    if (file_exists($imagePath)) {
+                        $response = $this->sendPhoto($channelId, $imagePath, $message, $keyboard);
+                    } else {
+                        // Fallback: try without public disk
+                        $altPath = Storage::path($poll->image);
+                        if (file_exists($altPath)) {
+                            $response = $this->sendPhoto($channelId, $altPath, $message, $keyboard);
+                        } else {
+                            Log::warning('Poll image not found, sending without image', [
+                                'poll_id' => $poll->id,
+                                'image' => $poll->image,
+                            ]);
+                            $response = $this->sendMessage($channelId, $message, $keyboard);
+                        }
+                    }
                 } else {
                     $response = $this->sendMessage($channelId, $message, $keyboard);
                 }
@@ -625,6 +884,7 @@ class PollBotService
                 Log::error('Publish poll to channel error: ' . $e->getMessage(), [
                     'poll_id' => $poll->id,
                     'channel_id' => $channelId,
+                    'trace' => $e->getTraceAsString(),
                 ]);
             }
         }

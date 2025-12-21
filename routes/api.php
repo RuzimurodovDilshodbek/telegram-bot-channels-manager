@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\VacancyController;
 use App\Http\Controllers\Api\TelegramWebhookController;
 use App\Http\Controllers\Api\PollBotWebhookController;
+use App\Http\Controllers\Api\IpCollectorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -36,3 +37,7 @@ Route::post('/vacancies', [VacancyController::class, 'store'])->name('vacancies.
 
 // Vacancy Statistics
 Route::get('/vacancies/{vacancyId}/statistics', [VacancyController::class, 'statistics'])->name('vacancies.statistics');
+
+// IP Collector for Poll Bot
+Route::get('/ip-collector', [IpCollectorController::class, 'show'])->name('ip-collector.show');
+Route::post('/collect-ip', [IpCollectorController::class, 'collect'])->name('ip-collector.collect');

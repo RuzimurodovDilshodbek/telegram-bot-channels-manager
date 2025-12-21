@@ -1,0 +1,83 @@
+=====================================================
+TEZKOR O'RNATISH - IP COLLECTION TIZIMI
+=====================================================
+
+1. FAYLLARNI SERVERGA YUKLASH (Local kompyuterdan)
+-----------------------------------------------------
+
+scp app/Http/Controllers/Api/IpCollectorController.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Http/Controllers/Api/
+
+scp resources/views/ip-collector.blade.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/resources/views/
+
+scp app/Services/PollBotService.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Services/
+
+scp app/Models/PollParticipant.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Models/
+
+scp routes/api.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/routes/
+
+scp database/migrations/2025_12_21_000001_add_ip_verified_to_poll_participants.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/database/migrations/
+
+
+2. SERVERDA ISHLATISH
+-----------------------------------------------------
+
+ssh root@161.97.88.95
+cd /var/www/telegram-bot-channels-manager
+php artisan migrate
+php artisan config:clear
+php artisan cache:clear
+php artisan view:clear
+php artisan route:clear
+
+
+3. TEST QILISH
+-----------------------------------------------------
+
+# Nomzod tugmasini bosing va jarayonni kuzating
+
+# Loglarni kuzating:
+tail -f storage/logs/laravel.log
+
+
+4. LOGDA QO'YIDAGILAR KO'RINISHI KERAK
+-----------------------------------------------------
+
+- "Requesting IP verification"
+- "IP Collection"
+- "IP Updated Successfully"
+- "Vote recorded successfully" (real_ip bilan)
+
+
+MUAMMOLAR BO'LSA:
+-----------------------------------------------------
+
+# Route ishlamasa:
+php artisan route:clear
+php artisan route:cache
+
+# View ishlamasa:
+php artisan view:clear
+
+# Migration xatosi bo'lsa:
+php artisan migrate:status
+php artisan migrate --force
+
+# Permission xatosi bo'lsa:
+chmod -R 775 storage
+chown -R www-data:www-data storage
+
+
+NIMA O'ZGARDI:
+-----------------------------------------------------
+
+✅ Haqiqiy IP yig'ish tizimi qo'shildi
+✅ Fraud prevention (IP, telefon, rate limiting)
+✅ Web sahifa orqali IP collection
+✅ Batafsil logging
+
+FRAUD LIMITS:
+- Max 10 ovoz bir IP dan
+- Max 10 ovoz bir telefon prefiksdan
+- Max 1 ovoz har 10 soniyada
+
+=====================================================
