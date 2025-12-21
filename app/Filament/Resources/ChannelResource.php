@@ -41,6 +41,7 @@ class ChannelResource extends Resource
                                 'management' => 'Boshqaruv kanali',
                                 'main' => 'Asosiy kanal',
                                 'region' => 'Hududiy kanal',
+                                'poll' => 'So\'rovnoma kanali',
                             ])
                             ->required()
                             ->reactive()

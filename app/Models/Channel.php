@@ -62,6 +62,11 @@ class Channel extends Model
         return $query->where('type', 'region');
     }
 
+    public function scopePoll($query)
+    {
+        return $query->where('type', 'poll');
+    }
+
     public function scopeByRegion($query, $regionSoato)
     {
         // Check if region_soato JSONB array contains the value
