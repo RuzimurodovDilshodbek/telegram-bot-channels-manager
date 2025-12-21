@@ -1,0 +1,157 @@
+=====================================================
+VACANCY LINK PREVIEW MUAMMOSI - TUZATILDI
+=====================================================
+
+MUAMMO:
+-----------------------------------------------------
+
+❌ Vacancy kanallarga chiqarilganda link preview (meta) chiqib qolyabdi
+❌ "Batafsil ma'lumot" linkining sayt meta si ko'rinib qolyabdi
+❌ Bu qo'shimcha ma'lumotlar post ni uzunroq qilib yuboradi
+
+YECHIM:
+-----------------------------------------------------
+
+✅ disable_web_page_preview parametri qo'shildi
+✅ Vacancy kanallarga yuborilganda preview o'chiriladi
+✅ Faqat toza xabar ko'rsatiladi
+
+=====================================================
+NIMA O'ZGARDI:
+=====================================================
+
+1. TelegramBotService.php:
+   - sendMessage() methodiga parametr qo'shildi
+   - $disableWebPagePreview = false (default)
+   - Backward compatible
+
+2. VacancyPublisher.php:
+   - publishToChannel() da disable_web_page_preview = true
+   - Link preview o'chiriladi
+   - Toza vacancy xabar yuboriladi
+
+=====================================================
+SERVERGA O'RNATISH:
+=====================================================
+
+2 TA FAYL YUKLASH:
+-----------------------------------------------------
+
+# 1. TelegramBotService
+scp app/Services/TelegramBotService.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Services/
+
+# 2. VacancyPublisher
+scp app/Services/VacancyPublisher.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Services/
+
+
+SERVERDA CACHE TOZALASH:
+-----------------------------------------------------
+
+ssh root@161.97.88.95
+cd /var/www/telegram-bot-channels-manager
+
+php artisan config:clear
+php artisan cache:clear
+
+
+=====================================================
+TEST QILISH:
+=====================================================
+
+1. Admin panelda yangi vacancy yarating
+
+2. "Kanallarga chiqarish" tugmasini bosing
+
+3. Kanalda post tekshiring:
+
+OLDINGI KO'RINISH:
+❌ Vacancy ma'lumotlari
+❌ "Batafsil ma'lumot" link
+❌ Link preview (meta):
+   - Sayt logosi
+   - Sayt nomi
+   - Tavsif
+
+YANGI KO'RINISH:
+✅ Vacancy ma'lumotlari
+✅ "Batafsil ma'lumot" link
+✅ Link preview YO'Q (toza ko'rinish)
+
+=====================================================
+KOD O'ZGARISHLARI:
+=====================================================
+
+TELEGRAMBOTSERVICE.PHP (21-qator):
+
+OLDINGI:
+public function sendMessage(string $chatId, string $text, array $replyMarkup = null): ?array
+
+YANGI:
+public function sendMessage(string $chatId, string $text, array $replyMarkup = null, bool $disableWebPagePreview = false): ?array
+
+PARAMS:
+'disable_web_page_preview' => $disableWebPagePreview
+
+
+VACANCYPUBLISHER.PHP (103-108 qatorlar):
+
+OLDINGI:
+$response = $this->telegram->sendMessage(
+    $channel->telegram_chat_id,
+    $message
+);
+
+YANGI:
+$response = $this->telegram->sendMessage(
+    $channel->telegram_chat_id,
+    $message,
+    null, // keyboard
+    true  // disable_web_page_preview
+);
+
+=====================================================
+QACHON PREVIEW KERAK BO'LADI:
+=====================================================
+
+Agar kelajakda link preview kerak bo'lsa:
+
+1. Management channel (tasdiqlash) uchun:
+   - Preview bo'lishi mumkin (moderator ko'rishi uchun)
+   - sendMessage(..., false) yoki default
+
+2. Maxsus xabarlar uchun:
+   - Ayrim hollarda preview foydali
+   - sendMessage(..., false)
+
+3. Asl kanallarda (hozir):
+   - Preview kerak emas
+   - sendMessage(..., true) ✅
+
+=====================================================
+BACKWARD COMPATIBILITY:
+=====================================================
+
+✅ Default qiymat: false (preview ko'rsatiladi)
+✅ Eski kod ishlaveradi
+✅ Hech qanday buzilish yo'q
+✅ Faqat kerakli joylarda true qo'yiladi
+
+Misol:
+// Eski kod (ishlayveradi)
+$this->telegram->sendMessage($chatId, $message);
+
+// Yangi kod (preview o'chirish)
+$this->telegram->sendMessage($chatId, $message, null, true);
+
+=====================================================
+XULOSA:
+=====================================================
+
+✅ Link preview o'chirildi
+✅ Vacancy xabarlari tozaroq ko'rinadi
+✅ Backward compatible
+✅ Istalgan joyda preview ni boshqarish mumkin
+
+Endi vacancy postlar professional va toza ko'rinadi! 🎉
+
+=====================================================

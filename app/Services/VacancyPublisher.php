@@ -99,10 +99,12 @@ class VacancyPublisher
 
         $message = $this->formatVacancyMessage($vacancy, $channelPost->tracking_url, $channel);
 
-        // Send to Telegram first
+        // Send to Telegram first (disable web page preview to avoid meta preview)
         $response = $this->telegram->sendMessage(
             $channel->telegram_chat_id,
-            $message
+            $message,
+            null, // keyboard
+            true  // disable_web_page_preview
         );
 
         // Only save to database if Telegram succeeded

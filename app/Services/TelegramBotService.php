@@ -18,14 +18,14 @@ class TelegramBotService
     /**
      * Send message to channel
      */
-    public function sendMessage(string $chatId, string $text, array $replyMarkup = null): ?array
+    public function sendMessage(string $chatId, string $text, array $replyMarkup = null, bool $disableWebPagePreview = false): ?array
     {
         try {
             $params = [
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => config('telegram.templates.vacancy.parse_mode', 'HTML'),
-                'disable_web_page_preview' => false,
+                'disable_web_page_preview' => $disableWebPagePreview,
             ];
 
             if ($replyMarkup) {
