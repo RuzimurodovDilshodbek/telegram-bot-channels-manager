@@ -546,7 +546,27 @@ class PollBotService
             return;
         }
 
-        // Show confirmation
+        // Check if participant is fully verified FIRST
+        if (!$participant->isFullyVerified()) {
+            // Check what's missing and guide user through verification
+            if ($poll->require_phone && !$participant->phone_verified) {
+                $this->requestPhoneNumber($chatId, $poll);
+                return;
+            }
+
+            if ($poll->require_subscription && !$participant->subscription_verified) {
+                $this->checkSubscription($chatId, $poll, $participant);
+                return;
+            }
+
+            // IP and ReCaptcha are verified together in WebApp
+            if (!$participant->ip_verified || ($poll->enable_recaptcha && !$participant->recaptcha_verified)) {
+                $this->requestIpVerification($chatId, $poll, $participant, $candidateId);
+                return;
+            }
+        }
+
+        // All verifications complete - show confirmation
         $message = "✅ <b>Ovozingizni tasdiqlang</b>\n\n";
         $message .= "Siz <b>{$candidate->name}</b> nomzodiga ovoz berasiz.\n\n";
         $message .= "Tasdiqlaysizmi?";
