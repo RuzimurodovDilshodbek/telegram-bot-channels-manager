@@ -865,6 +865,7 @@ class PollBotService
                 $keyboard = $this->generatePollKeyboard($poll);
 
                 $response = null;
+                $hasImage = false;
 
                 // Send with photo if exists
                 if ($poll->image) {
@@ -880,21 +881,25 @@ class PollBotService
 
                     if (file_exists($imagePath)) {
                         $response = $this->sendPhoto($channelId, $imagePath, $message, $keyboard);
+                        $hasImage = true;
                     } else {
                         // Fallback: try without public disk
                         $altPath = Storage::path($poll->image);
                         if (file_exists($altPath)) {
                             $response = $this->sendPhoto($channelId, $altPath, $message, $keyboard);
+                            $hasImage = true;
                         } else {
                             Log::warning('Poll image not found, sending without image', [
                                 'poll_id' => $poll->id,
                                 'image' => $poll->image,
                             ]);
                             $response = $this->sendMessage($channelId, $message, $keyboard);
+                            $hasImage = false;
                         }
                     }
                 } else {
                     $response = $this->sendMessage($channelId, $message, $keyboard);
+                    $hasImage = false;
                 }
 
                 if ($response) {
@@ -902,6 +907,7 @@ class PollBotService
                         'poll_id' => $poll->id,
                         'channel_id' => $channelId,
                         'message_id' => $response['message_id'],
+                        'has_image' => $hasImage,
                         'post_text' => $message,
                         'posted_at' => now(),
                     ]);
@@ -938,12 +944,13 @@ class PollBotService
                     'poll_id' => $poll->id,
                     'channel_id' => $post->channel_id,
                     'message_id' => $post->message_id,
-                    'has_image' => !empty($poll->image),
+                    'has_image' => $post->has_image,
                 ]);
 
                 // Update only the caption and keyboard (can't change photo)
+                // Use the has_image field from the post to determine which method to use
                 $result = null;
-                if ($poll->image && Storage::exists($poll->image)) {
+                if ($post->has_image) {
                     $result = $this->editMessageCaption($post->channel_id, (int)$post->message_id, $message, $keyboard);
                 } else {
                     $result = $this->editMessageText($post->channel_id, (int)$post->message_id, $message, $keyboard);

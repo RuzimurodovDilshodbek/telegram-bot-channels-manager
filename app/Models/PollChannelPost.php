@@ -14,6 +14,7 @@ class PollChannelPost extends Model
         'channel_id',
         'channel_username',
         'message_id',
+        'has_image',
         'post_text',
         'posted_at',
         'last_updated_at',
@@ -21,6 +22,7 @@ class PollChannelPost extends Model
     ];
 
     protected $casts = [
+        'has_image' => 'boolean',
         'posted_at' => 'datetime',
         'last_updated_at' => 'datetime',
         'update_count' => 'integer',
