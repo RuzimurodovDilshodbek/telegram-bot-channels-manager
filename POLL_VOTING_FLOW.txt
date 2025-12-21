@@ -1,0 +1,127 @@
+=====================================================
+SO'ROVNOMA - OVOZ BERISH JARAYONI
+=====================================================
+
+FOYDALANUVCHI UCHUN TO'LIQ JARAYON:
+-----------------------------------------------------
+
+1. KANAL POSTINI KO'RADI
+   - So'rovnoma nomi va tavsifi
+   - Har bir nomzod uchun alohida tugma
+   - Tugmada: nomzod nomi + ovozlar soni + foiz
+
+2. NOMZOD TUGMASINI BOSADI
+   - Botga o'tadi
+   - /start poll_1_vote_2 (avtomatik)
+
+3. TELEFON RAQAM (agar yoqilgan bo'lsa)
+   - "Telefon raqamni yuborish" tugmasi chiqadi
+   - Contact button orqali telefon yuboradi
+   - ✅ Telefon tasdiqlandi
+
+4. KANAL OBUNASI (agar yoqilgan bo'lsa)
+   - Barcha majburiy kanallar ro'yxati chiqadi
+   - Har bir kanal oldida ✅ yoki ❌
+   - Foydalanuvchi kanallarga obuna bo'ladi
+   - "Obunani tekshirish" tugmasini bosadi
+   - ✅ Obuna tasdiqlandi
+
+5. RECAPTCHA (agar yoqilgan bo'lsa)
+   - Matematik masala: 5 + 3 = ?
+   - 4 ta variant tugma
+   - To'g'ri javobni tanlaydi
+   - ✅ ReCaptcha tasdiqlandi
+
+6. OVOZ BERISH TASDIQLANADI
+   - "Ha, tasdiqlash" yoki "Bekor qilish"
+   - Tasdiqlashni bosadi
+
+7. ✅ OVOZ QABUL QILINDI!
+   - Rahmat xabari
+   - Hozirgi natijalar ko'rsatiladi
+   - Kanal postlari avtomatik yangilanadi
+
+=====================================================
+ADMIN SOZLAMALARI:
+=====================================================
+
+So'rovnoma yaratishda 3 xil tekshiruvni sozlash mumkin:
+
+1. TELEFON RAQAM
+   ☐ Telefon raqam talab qilish
+
+   Yoqilgan bo'lsa:
+   - Foydalanuvchidan telefon raqam so'raladi
+   - Database ga saqlanadi
+
+2. KANAL OBUNASI
+   ☐ Kanal obunasi talab qilish
+
+   Yoqilgan bo'lsa:
+   - Majburiy kanallar tanlanadi
+   - Foydalanuvchi obuna bo'lishi kerak
+   - Real-time tekshiriladi
+
+3. RECAPTCHA
+   ☐ ReCaptcha yoqish
+
+   Yoqilgan bo'lsa:
+   - Oddiy matematik masala
+   - Bot/spam oldini olish uchun
+
+=====================================================
+XAVFSIZLIK:
+=====================================================
+
+✅ Bir foydalanuvchi - bir ovoz
+   - chat_id bo'yicha tekshiriladi
+   - Database constraint
+
+✅ IP Tracking
+   - Har bir ovoz IP bilan saqlanadi
+   - Shubhali harakatlarni aniqlash
+
+✅ User Agent Tracking
+   - Qaysi qurilmadan ovoz bergan
+
+✅ Takroriy ovoz berish bloklangan
+   - Ikkinchi marta urinsa: "Allaqachon ovoz bergansiz"
+
+=====================================================
+SERVER GA YANGILASHNI O'RNATISH:
+=====================================================
+
+1. Faylni yuklang:
+
+scp app/Services/PollBotService.php root@161.97.88.95:/var/www/telegram-bot-channels-manager/app/Services/
+
+2. Cache tozalang:
+
+ssh root@161.97.88.95
+cd /var/www/telegram-bot-channels-manager
+php artisan config:clear
+php artisan cache:clear
+
+3. Test qiling!
+
+=====================================================
+TEST QILISH:
+=====================================================
+
+1. Yangi so'rovnoma yarating
+2. Barcha 3 sozlamani yoqing:
+   ✅ Telefon raqam talab qilish
+   ✅ Kanal obunasi talab qilish
+   ✅ ReCaptcha yoqish
+
+3. Kanallarga chiqaring
+
+4. Nomzod tugmasini bosing
+
+5. Jarayonni kuzating:
+   - Telefon so'raydi ✅
+   - Obuna tekshiradi ✅
+   - Matematik masala beradi ✅
+   - Ovoz qabul qiladi ✅
+
+=====================================================
